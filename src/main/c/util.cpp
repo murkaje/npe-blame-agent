@@ -1,4 +1,5 @@
 #include <cstdarg>
+#include <algorithm>
 #include "util.h"
 
 #include "logging.h"
@@ -135,11 +136,151 @@ std::string formatString(const char *format, ...) {
   return formattedString;
 }
 
-/**
- *
- * @param signature
- * @return Java type declaration
- */
-std::string parseMethodSignature(const std::string &signature) {
-  return "";
+std::string toJavaClassName(const std::string &jvmClassName) {
+  std::string javaClassName = jvmClassName;
+  std::replace(javaClassName.begin(), javaClassName.end(), '/', '.');
+  return javaClassName;
+}
+
+std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size_t *outEndPos) {
+  if (jvmTypeName.empty()) { throw std::invalid_argument("Empty string is not a signature"); }
+
+  size_t pos = startPos;
+  uint8_t arrayDim = 0;
+
+  //pos+1 is checking that after [ at least 1 letter will follow for next switch block
+  while (jvmTypeName[pos] == '[' && pos + 1 < jvmTypeName.size()) {
+    arrayDim++;
+    pos++;
+  }
+
+  std::string basicType;
+  switch (jvmTypeName[pos]) {
+    case 'L': {
+      size_t end = jvmTypeName.find(';', pos + 1);
+      if (end == std::string::npos) { throw std::invalid_argument("Malformed class signature, did not find ';'"); }
+      basicType = jvmTypeName.substr(pos + 1, end - pos - 1);
+      std::replace(basicType.begin(), basicType.end(), '/', '.');
+
+      pos += basicType.size() + 2;
+
+      break;
+    }
+    case 'V':
+      basicType = "void";
+      pos++;
+      break;
+    case 'B':
+      basicType = "byte";
+      pos++;
+      break;
+    case 'I':
+      basicType = "int";
+      pos++;
+      break;
+    case 'J':
+      basicType = "long";
+      pos++;
+      break;
+    case 'Z':
+      basicType = "bool";
+      pos++;
+      break;
+    case 'C':
+      basicType = "char";
+      pos++;
+      break;
+    case 'D':
+      basicType = "double";
+      pos++;
+      break;
+    case 'F':
+      basicType = "float";
+      pos++;
+      break;
+    case 'S':
+      basicType = "short";
+      pos++;
+      break;
+    default:
+      throw std::invalid_argument("Unknown type letter " + jvmTypeName.substr(pos, pos));
+  }
+
+  if (outEndPos != nullptr) {
+    *outEndPos = pos;
+  }
+
+  if (arrayDim == 0) {
+    return basicType;
+  }
+
+  std::stringstream ss;
+  ss << basicType;
+  for (size_t count = 0; count < arrayDim; count++) {
+    ss << "[]";
+  }
+
+  return ss.str();
+}
+
+// (Ljava/lang/Class;IIZ)V -> void (Class, int, int, bool)
+std::string parseMethodSignature(const std::string &signature, const std::string &methodName) {
+  size_t pos = 0;
+
+  if (signature.empty() || signature[pos] != '(') {
+    throw std::invalid_argument("Signature must begin with '('");
+  }
+  pos++;
+
+  std::stringstream ss;
+
+  bool first = true;
+  std::string type;
+  while (pos < signature.size()) {
+    if (signature[pos] == ')') {
+      pos++;
+      continue;
+    }
+    type = toJavaTypeName(signature, pos, &pos);
+
+    if (pos != signature.size()) {
+      if (first) {
+        first = false;
+      }
+      else {
+        ss << ", ";
+      }
+      ss << type;
+    }
+
+  }
+
+  return type + " " + methodName + "(" + ss.str() + ")";
+
+}
+
+Method::Method(const std::string &methodName, const std::string &signature) : methodName(methodName) {
+  size_t pos = 0;
+
+  if (signature.empty() || signature[pos] != '(') {
+    throw std::invalid_argument("Signature must begin with '('");
+  }
+  pos++;
+
+  std::string type;
+  while (pos < signature.size()) {
+    if (signature[pos] == ')') {
+      pos++;
+      continue;
+    }
+    type = toJavaTypeName(signature, pos, &pos);
+
+    if (pos != signature.size()) {
+      parameterTypes.push_back(type);
+    }
+    else {
+      returnType = type;
+    }
+
+  }
 }

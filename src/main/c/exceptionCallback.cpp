@@ -2,6 +2,7 @@
 
 #include <string>
 #include <map>
+#include <iterator>
 
 #include "LocalVariableTable.h"
 #include "Constants.h"
@@ -20,7 +21,7 @@ static Logger log("ExceptionCallback");
  *  Minimize so that native agent only adds extra field to java.lang.Exception, other code to java
  *  If our logger prints exception, see if we have additional info(valid to start griffin without native) and print it
  *
- *  Check if exception is catched in same method/class, print in this case even if opcode[location] == ATHROW as it probably is
+ *  Check if exception is caught in same method/class, print in this case even if opcode[location] == ATHROW as it probably is
  *  if(var == null) {
  *    throw new NullPointerException();
  *  }
@@ -61,28 +62,28 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
      * matcher[aload*(n), aconst_null, ...]
      * if(matcher.matches()) ...
      */
-    for(; iter.getOffset() + 11 < codeAttribute.getSize(); iter++) {
+    for (; iter.getOffset() + 11 < codeAttribute.getSize(); iter++) {
 
       log.debug(formatString("Current opcode: %s", Constants::OpcodeMnemonic[std::get<1>(*iter)]));
 
       // Record current stack top via visitor?
 
-      if(std::get<1>(*iter) != ACONST_NULL) continue;
+      if (std::get<1>(*iter) != ACONST_NULL) { continue; }
       log.debug("aconst_null");
       iter++;
-      if(std::get<1>(*iter) != IF_ACMPNE) continue;
+      if (std::get<1>(*iter) != IF_ACMPNE) { continue; }
       log.debug("if_acmpne");
       iter++;
-      if(std::get<1>(*iter) != NEW) continue;
+      if (std::get<1>(*iter) != NEW) { continue; }
       log.debug("new");
       iter++;
-      if(std::get<1>(*iter) != DUP) continue;
+      if (std::get<1>(*iter) != DUP) { continue; }
       log.debug("dup");
       iter++;
-      if(std::get<1>(*iter) != INVOKESPECIAL) continue;
+      if (std::get<1>(*iter) != INVOKESPECIAL) { continue; }
       log.debug("invokespecial");
       iter++;
-      if(std::get<1>(*iter) != ATHROW) continue;
+      if (std::get<1>(*iter) != ATHROW) { continue; }
 
       log.debug("Method checks for null explicitly");
       return true;
@@ -92,6 +93,25 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
 //    return false;
   }
   return true;
+}
+
+std::string getExceptionMessage(const ConstPool &constPool, const CodeAttribute &codeAttribute, size_t location) {
+  std::string exceptionDetail;
+  if (auto op = codeAttribute.getOpcode(location); op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
+    const uint16_t refIndex = ByteVectorUtil::readuint16(codeAttribute.getCode(), location + 1);
+
+    const auto &memberRef = dynamic_cast<const MemberRefInfo &> (constPool.get(refIndex));
+    const auto &nameAndTypeRef = dynamic_cast<const NameAndTypeInfo&>(constPool.get(memberRef.getNameAndTypeIndex()));
+    std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
+    std::string methodName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
+    std::string methodSignature = constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false);
+
+    exceptionDetail = "While invoking instance method " + className + "#" + methodName + " on null [unimplemented]";
+  }
+  else {
+    exceptionDetail = "NOT INVOKE";
+  }
+  return exceptionDetail;
 }
 
 void JNICALL callback_Exception(jvmtiEnv *jvmti,
@@ -143,19 +163,34 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
 
   jint cpCount;
-  vector<uint8_t> constPool;
-  std::tie(cpCount, constPool) = getConstPool(jvmti, methodClass);
+  vector<uint8_t> constPoolBytes;
+  std::tie(cpCount, constPoolBytes) = getConstPool(jvmti, methodClass);
 
   LocalVariableTable localVariables(jvmti, method);
 
-  ConstPool constPoolStruct(constPool);
+  ConstPool constPool(constPoolBytes);
   CodeAttribute codeAttribute(methodBytecode, localVariables);
-  InstructionPrintIterator iter(codeAttribute, constPoolStruct);
+  InstructionPrintIterator iter(codeAttribute, constPool);
 
 
   if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
 
-  jstring detailMessage = jni->NewStringUTF("Heyyy, it works!");
+  /**
+   * EXAMPLE: "while invoking instance method [Class&Method] on a null object [obtained from XYZ]"
+   * Following options depending on where null originated
+   * local variable is null
+   *    display local variable name if debug info present
+   *    slot number and type if not(bonus: track lvar lifetime, last method/aconst_null/etc that produced value)
+   * chained(value only on stack, never stored in slot)
+   *    display method call that pushed value to stack
+   * method param
+   *    param name and type
+   *    type and index if debug info not present
+   */
+
+  std::string exceptionDetail = getExceptionMessage(constPool, codeAttribute, location);
+
+  jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
   jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
   jni->SetObjectField(exception, detailMessageField, detailMessage);
   jni->DeleteLocalRef(detailMessage);

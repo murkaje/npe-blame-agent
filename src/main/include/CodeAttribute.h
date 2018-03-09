@@ -36,6 +36,10 @@ public:
     //TODO:Check that byte at offset is opcode
     return code[offset];
   }
+
+  const std::vector<uint8_t>& getCode() const { return code; }
+
+  //TODO: Methods for accessing specific refs, e.g. method signature
 };
 
 class InstructionIterator {

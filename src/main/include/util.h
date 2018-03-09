@@ -25,7 +25,36 @@ std::vector<uint8_t> getMethodBytecode(jvmtiEnv *jvmti, jmethodID method);
 
 std::string formatString(const char *format, ...);
 
-std::string signatureToReadableFormat(const std::string& signature);
+std::string toJavaClassName(const std::string &jvmClassName);
+
+std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size_t *outEndPos);
+
+std::string parseMethodSignature(const std::string &signature, const std::string &methodName);
+
+class Method {
+  std::string returnType;
+  std::string methodName;
+  std::vector<std::string> parameterTypes;
+
+public:
+  Method(const std::string &methodName, const std::string &signature);
+
+  const std::string &getReturnType() const {
+    return returnType;
+  }
+
+  const std::string &getMethodName() const {
+    return methodName;
+  }
+
+  const std::vector<std::string> &getParameterTypes() const {
+    return parameterTypes;
+  }
+
+  const size_t getParameterCount() const {
+    return parameterTypes.size();
+  }
+};
 
 //TODO: Extract to cpp
 class ByteVectorUtil {
