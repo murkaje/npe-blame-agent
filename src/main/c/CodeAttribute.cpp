@@ -6,6 +6,21 @@
 
 static Logger log("CodeAttribute");
 
+CodeAttribute::CodeAttribute(std::vector<uint8_t> code, LocalVariableTable localVariables) : code(std::move(code)), localVariables(std::move(localVariables)) {
+  init();
+}
+
+CodeAttribute::CodeAttribute(std::vector<uint8_t> code) : code(std::move(code)) {
+  init();
+}
+
+void CodeAttribute::init() {
+  for(size_t pos=0; pos < code.size();) {
+    instructions.push_back(pos);
+    pos += Constants::InstructionLength[code[pos]];
+  }
+}
+
 std::string CodeAttribute::toString(const ConstPool &constPool) const {
   return "";
 }
@@ -143,29 +158,6 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
 std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
   auto [name, desc] = localVariables.get(slot);
   return formatString("%d: name=%s type=%s", slot, name.c_str(), desc.c_str());
-}
-
-const uint8_t loadStoreSlotLookupTable[] = {
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //0-9
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //10-19
-    9, 9, 9, 9, 9, 9, 0, 1, 2, 3, //20-29
-    0, 1, 2, 3, 0, 1, 2, 3, 0, 1, //30-39
-    2, 3, 0, 1, 2, 3, 9, 9, 9, 9, //40-49
-    9, 9, 9, 9, 9, 9, 9, 9, 9, 0, //50-59
-    1, 2, 3, 0, 1, 2, 3, 0, 1, 2, //60-69
-    3, 0, 1, 2, 3, 0, 1, 2, 3, 9, //70-79
-};
-
-/**
- * Get local variable slot for 1 byte load/store opcodes e.g. ALOAD_1 -> 1
- */
-uint8_t CodeAttribute::opcodeSlot(uint8_t opCode) const {
-  if (opCode >= ILOAD_0 && opCode <= ASTORE_3) {
-    uint8_t val = loadStoreSlotLookupTable[opCode];
-    if (val != 9) { return val; }
-  }
-
-  throw std::invalid_argument(formatString("Opcode is not a valid 1 byte load/store: %s", Constants::OpcodeMnemonic[opCode]));
 }
 
 void InstructionPrintIterator::operator++(int) {

@@ -17,12 +17,12 @@ private:
 
   LocalVariableTable localVariables;
 
-  uint8_t opcodeSlot(uint8_t opCode) const;
+  void init();
 
 public:
-  CodeAttribute(std::vector<uint8_t> code, LocalVariableTable localVariables) : code(std::move(code)), localVariables(std::move(localVariables)) {}
+  CodeAttribute(std::vector<uint8_t> code, LocalVariableTable localVariables);
 
-  explicit CodeAttribute(std::vector<uint8_t> code) : code(std::move(code)) {}
+  explicit CodeAttribute(std::vector<uint8_t> code);
 
   std::string toString(const ConstPool &constPool) const;
 
@@ -37,7 +37,9 @@ public:
     return code[offset];
   }
 
-  const std::vector<uint8_t>& getCode() const { return code; }
+  const std::vector<uint8_t> &getCode() const { return code; }
+
+  const std::vector<size_t> &getInstructions() const { return instructions; }
 
   //TODO: Methods for accessing specific refs, e.g. method signature
 };

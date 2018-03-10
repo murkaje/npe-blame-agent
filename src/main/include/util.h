@@ -4,6 +4,9 @@
 #include <vector>
 #include <cstdarg>
 
+#include "ConstPool.h"
+#include "CodeAttribute.h"
+
 #include "jni.h"
 #include "jvmti.h"
 
@@ -31,13 +34,24 @@ std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size
 
 std::string parseMethodSignature(const std::string &signature, const std::string &methodName);
 
+uint8_t opcodeSlot(uint8_t opCode);
+
 class Method {
+  std::string className;
   std::string returnType;
   std::string methodName;
   std::vector<std::string> parameterTypes;
 
 public:
-  Method(const std::string &methodName, const std::string &signature);
+  Method(std::string className, std::string methodName, const std::string &signature);
+
+  static Method readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
+
+  static Method readFromMemberRef(const ConstPool &constPool, size_t refId);
+
+  const std::string &getClassName() const {
+    return className;
+  }
 
   const std::string &getReturnType() const {
     return returnType;

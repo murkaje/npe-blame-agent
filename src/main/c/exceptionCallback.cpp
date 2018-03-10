@@ -3,6 +3,7 @@
 #include <string>
 #include <map>
 #include <iterator>
+#include <Analyzer.h>
 
 #include "LocalVariableTable.h"
 #include "Constants.h"
@@ -98,15 +99,9 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
 std::string getExceptionMessage(const ConstPool &constPool, const CodeAttribute &codeAttribute, size_t location) {
   std::string exceptionDetail;
   if (auto op = codeAttribute.getOpcode(location); op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
-    const uint16_t refIndex = ByteVectorUtil::readuint16(codeAttribute.getCode(), location + 1);
-
-    const auto &memberRef = dynamic_cast<const MemberRefInfo &> (constPool.get(refIndex));
-    const auto &nameAndTypeRef = dynamic_cast<const NameAndTypeInfo&>(constPool.get(memberRef.getNameAndTypeIndex()));
-    std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
-    std::string methodName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
-    std::string methodSignature = constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false);
-
-    exceptionDetail = "While invoking instance method " + className + "#" + methodName + " on null [unimplemented]";
+    Method method = Method::readFromCodeInvoke(codeAttribute, constPool, location);
+    std::string sourceMessage = traceInvokeInstance(constPool, codeAttribute, location);
+    exceptionDetail = "Invoking instance method " + method.getClassName() + "#" + method.getMethodName() + " on null " + sourceMessage;
   }
   else {
     exceptionDetail = "NOT INVOKE";

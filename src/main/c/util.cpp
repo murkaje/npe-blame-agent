@@ -1,5 +1,7 @@
 #include <cstdarg>
 #include <algorithm>
+#include <Constants.h>
+#include <CodeAttribute.h>
 #include "util.h"
 
 #include "logging.h"
@@ -259,7 +261,7 @@ std::string parseMethodSignature(const std::string &signature, const std::string
 
 }
 
-Method::Method(const std::string &methodName, const std::string &signature) : methodName(methodName) {
+Method::Method(std::string className, std::string methodName, const std::string &signature) : className(std::move(className)), methodName(std::move(methodName)) {
   size_t pos = 0;
 
   if (signature.empty() || signature[pos] != '(') {
@@ -283,4 +285,49 @@ Method::Method(const std::string &methodName, const std::string &signature) : me
     }
 
   }
+}
+
+Method Method::readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci) {
+  uint8_t opCode = code.getOpcode(bci);
+  if(opCode != OpCodes::INVOKEVIRTUAL && opCode != OpCodes::INVOKEINTERFACE && opCode != OpCodes::INVOKESTATIC) {
+    log.info("What are you parsing?");
+  }
+
+  const uint16_t refIndex = ByteVectorUtil::readuint16(code.getCode(), bci + 1);
+  return readFromMemberRef(constPool, refIndex);
+}
+
+//TODO: checks
+Method Method::readFromMemberRef(const ConstPool &constPool, size_t refId) {
+  const auto &memberRef = dynamic_cast<const MemberRefInfo &> (constPool.get(refId));
+  const auto &nameAndTypeRef = dynamic_cast<const NameAndTypeInfo&>(constPool.get(memberRef.getNameAndTypeIndex()));
+
+  std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
+  std::string methodName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
+  std::string methodSignature = constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false);
+
+  return Method(className, methodName, methodSignature);
+}
+
+const uint8_t loadStoreSlotLookupTable[] = {
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //0-9
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //10-19
+    9, 9, 9, 9, 9, 9, 0, 1, 2, 3, //20-29
+    0, 1, 2, 3, 0, 1, 2, 3, 0, 1, //30-39
+    2, 3, 0, 1, 2, 3, 9, 9, 9, 9, //40-49
+    9, 9, 9, 9, 9, 9, 9, 9, 9, 0, //50-59
+    1, 2, 3, 0, 1, 2, 3, 0, 1, 2, //60-69
+    3, 0, 1, 2, 3, 0, 1, 2, 3, 9, //70-79
+};
+
+/**
+ * Get local variable slot for 1 byte load/store opcodes e.g. ALOAD_1 -> 1
+ */
+uint8_t opcodeSlot(uint8_t opCode) {
+  if (opCode >= ILOAD_0 && opCode <= ASTORE_3) {
+    uint8_t val = loadStoreSlotLookupTable[opCode];
+    if (val != 9) { return val; }
+  }
+
+  throw std::invalid_argument(formatString("Opcode is not a valid 1 byte load/store: %s", Constants::OpcodeMnemonic[opCode]));
 }
