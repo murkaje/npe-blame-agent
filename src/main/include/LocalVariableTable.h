@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <map>
 #include <cstdint>
@@ -7,15 +8,13 @@
 
 class LocalVariableTable {
 
-  std::map<uint16_t, std::tuple<std::string, std::string>> table;
+  std::map<uint16_t, const std::tuple<const std::string, const std::string>> table;
 
 public:
-
-  static std::tuple<std::string, std::string> missing;
 
   LocalVariableTable() = default;
 
   LocalVariableTable(jvmtiEnv *jvmti, jmethodID method);
 
-  const std::tuple<std::string, std::string>& get(uint16_t slot) const;
+  std::optional<const std::tuple<const std::string, const std::string>> getEntry(uint16_t slot) const;
 };

@@ -156,7 +156,7 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
 }
 
 std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
-  auto [name, desc] = localVariables.get(slot);
+  auto [name, desc] = localVariables.getEntry(slot).value_or(std::make_tuple("?", "?"));
   return formatString("%d: name=%s type=%s", slot, name.c_str(), desc.c_str());
 }
 

@@ -6,9 +6,8 @@
 using std::tuple;
 using std::string;
 using std::make_tuple;
-using std::string_literals::operator""s;
-
-tuple<string, string> LocalVariableTable::missing = make_tuple("?"s, "?"s);
+using std::optional;
+using std::string_literals::operator ""s;
 
 LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {
   jint localVariableEntryCount = 0;
@@ -36,10 +35,9 @@ LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {
   }
 }
 
-const std::tuple<std::string, std::string>& LocalVariableTable::get(uint16_t slot) const {
-  if(auto entry = table.find(slot); entry != table.end()) {
+std::optional<const tuple<const string, const string>> LocalVariableTable::getEntry(uint16_t slot) const {
+  if (auto entry = table.find(slot); entry != table.end()) {
     return entry->second;
-  } else {
-    return LocalVariableTable::missing;
   }
+  return std::nullopt;
 }

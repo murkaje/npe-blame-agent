@@ -96,17 +96,22 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
   return true;
 }
 
-std::string getExceptionMessage(const ConstPool &constPool, const CodeAttribute &codeAttribute, size_t location) {
-  std::string exceptionDetail;
-  if (auto op = codeAttribute.getOpcode(location); op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
-    Method method = Method::readFromCodeInvoke(codeAttribute, constPool, location);
-    std::string sourceMessage = traceInvokeInstance(constPool, codeAttribute, location);
-    exceptionDetail = "Invoking instance method " + method.getClassName() + "#" + method.getMethodName() + " on null " + sourceMessage;
+std::string getExceptionMessage(const ConstPool &cp, const CodeAttribute &code, const LocalVariableTable &vars, size_t location) {
+  return describeNPEInstruction(cp, code, vars, location);
+
+  if (auto op = code.getOpcode(location); op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
+    Method method = Method::readFromCodeInvoke(code, cp, location);
+    std::string sourceMessage = traceInvokeInstance(cp, code, vars, location);
+    return "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null " + sourceMessage;
   }
-  else {
-    exceptionDetail = "NOT INVOKE";
+  else if(op == OpCodes::ATHROW) {
+
   }
-  return exceptionDetail;
+  else if(op == OpCodes::ARRAYLENGTH) {
+    // Should follow same analysis as 0 arg instance method invoke
+  }
+  return "NOT INVOKE";
+
 }
 
 void JNICALL callback_Exception(jvmtiEnv *jvmti,
@@ -152,8 +157,10 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   string exceptionClassName = getClassName(jni, exceptionClass);
   string exceptionMessage = getExceptionMessage(jni, exception);
 
-//  log.debug("Exception class name: " + exceptionClassName);
   if (exceptionClassName != "java.lang.NullPointerException") { return; }
+
+  // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
+//  if (!exceptionMessage.empty()) { return; }
 
   vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
 
@@ -171,7 +178,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
 
   /**
-   * EXAMPLE: "while invoking instance method [Class&Method] on a null object [obtained from XYZ]"
+   * EXAMPLE: "invoking [Class&Method] on null [something obtained from XYZ]"
    * Following options depending on where null originated
    * local variable is null
    *    display local variable name if debug info present
@@ -183,19 +190,21 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
    *    type and index if debug info not present
    */
 
-  std::string exceptionDetail = getExceptionMessage(constPool, codeAttribute, location);
+  std::string exceptionDetail = getExceptionMessage(constPool, codeAttribute, localVariables, location);
 
   jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
   jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
   jni->SetObjectField(exception, detailMessageField, detailMessage);
   jni->DeleteLocalRef(detailMessage);
 
-  log.info() << exceptionClassName << ": " << exceptionMessage << "\n"
-             << formatString("\tat %s.%s[%d]%s", methodClassName.c_str(), methodName.c_str(), location, methodSignature.c_str()) << std::endl;
+//  return;
+
+  log.debug() << exceptionClassName << ": " << exceptionMessage << "\n"
+              << formatString("\tat %s.%s[%d]%s", methodClassName.c_str(), methodName.c_str(), location, methodSignature.c_str()) << std::endl;
 
   size_t beginOffset = location > 200 ? location - 50 : 0;  //Limit printing too much
-  std::ostream &out = log.info() << "Method instructions:\n";
-  for (; iter.getOffset() < codeAttribute.getSize() && iter.getOffset() <= location; iter++) {
+  std::ostream &out = log.debug() << "Method instructions:\n";
+  for (; iter.getOffset() < codeAttribute.getSize() /*&& iter.getOffset() <= location*/; iter++) {
     if (iter.getOffset() >= beginOffset) {
       out << formatString("%-6d: %s\n", iter.getOffset(), (*iter).c_str());
 //          out << std::setw(6) << std::setfill(' ') << std::left << iter.getOffset() << ": " << *iter << "\n";
