@@ -1,11 +1,12 @@
-#include <util.h>
-#include <fstream>
 #include "ConstPool.h"
+
+#include <fstream>
+#include <spdlog.h>
+
 #include "Constants.h"
+#include "util.h"
 
-#include "logging.h"
-
-static Logger log("ConstPool");
+static auto logger = getLogger("Bytecode");
 
 // ****************************************
 // ******      Print Visitors       *******
@@ -113,33 +114,33 @@ std::unique_ptr<ConstInfo> ConstInfo::read(const std::vector<uint8_t> &constPool
   uint8_t tag = constPoolBytes[offset];
   offset++;
   switch (tag) {
-    case CONSTANT_Utf8:
+    case CpInfo::Utf8:
       return UTF8Info::read(constPoolBytes, offset, index);
-    case CONSTANT_Integer:
+    case CpInfo::Integer:
       return IntegerInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Float:
+    case CpInfo::Float:
       return FloatInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Long:
+    case CpInfo::Long:
       return LongInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Double:
+    case CpInfo::Double:
       return DoubleInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Class:
+    case CpInfo::Class:
       return ClassInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_String:
+    case CpInfo::String:
       return StringInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Fieldref:
+    case CpInfo::Fieldref:
       return FieldRefInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_Methodref:
+    case CpInfo::Methodref:
       return MethodRefInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_InterfaceMethodref:
+    case CpInfo::InterfaceMethodref:
       return InterfaceMethodRefInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_NameAndType:
+    case CpInfo::NameAndType:
       return NameAndTypeInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_MethodHandle:
+    case CpInfo::MethodHandle:
       return MethodHandleInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_MethodType:
+    case CpInfo::MethodType:
       return MethodTypeInfo::read(constPoolBytes, offset, index);
-    case CONSTANT_InvokeDynamic:
+    case CpInfo::InvokeDynamic:
       return InvokeDynamicInfo::read(constPoolBytes, offset, index);
     default:
       throw std::runtime_error(formatString("Unexpected tag %d at offset %d", tag, offset));
@@ -196,7 +197,7 @@ std::unique_ptr<ConstInfo> DoubleInfo::read(const std::vector<uint8_t> &constPoo
                   ((uint64_t) constPoolBytes[offset + 6] << 8) |
                   constPoolBytes[offset + 7];
   offset += 8;
-  double value = reinterpret_cast<double&>(data);
+  double value = reinterpret_cast<double &>(data);
 
   return std::make_unique<DoubleInfo>(value, index);
 }
@@ -280,7 +281,7 @@ void ConstPool::read(const std::vector<uint8_t> &constPoolBytes) {
 //    log.debug(formatString("Readpos: %d / %d", readPos, constPoolBytes.size()));
     entries.push_back(std::move(constPoolEntry));
     indexPos++;
-    if(tag == CONSTANT_Long || tag == CONSTANT_Double) {
+    if (tag == CpInfo::Long || tag == CpInfo::Double) {
       entries.push_back(std::make_unique<ConstInfoPadding>(indexPos));
       indexPos++;
     }
@@ -290,19 +291,19 @@ void ConstPool::read(const std::vector<uint8_t> &constPoolBytes) {
 void ConstPool::read(std::ifstream classFileStream, size_t count) {
   entries.reserve(count);
 
-  while(indexPos < count-1) {
+  while (indexPos < count - 1) {
     //std::unique_ptr<ConstInfo> constPoolEntry = ConstInfo::read(classFileStream, indexPos);
   }
 }
 
 void ConstPool::print() const {
   for (size_t index = 0; index < entries.size(); index++) {
-    log.info() << "#" << std::setw(5) << std::setfill(' ') << std::left << index << "\t" << entryToString(index, false) << std::endl;
+    logger->info("#{:<5}\t{}", index, entryToString(index, false));
   }
 }
 
 std::string ConstPool::entryToString(size_t index, bool identifier) const {
-  if(index >= entries.size()) {
+  if (index >= entries.size()) {
     return formatString("#%d", index);
   }
 

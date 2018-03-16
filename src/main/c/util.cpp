@@ -1,19 +1,30 @@
-#include <cstdarg>
-#include <algorithm>
-#include <Constants.h>
-#include <CodeAttribute.h>
 #include "util.h"
 
-#include "logging.h"
+#include <cstdarg>
+#include <algorithm>
+#include <sstream>
+#include <spdlog.h>
 
-static Logger log("Util");
+#include <Constants.h>
+#include <CodeAttribute.h>
+
+std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
+  auto log = spdlog::get(std::string(loggerName));
+  if(!log) {
+    log = spdlog::stdout_color_st(std::string(loggerName));
+    log->set_level(spdlog::level::trace);
+  }
+  return log;
+}
+
+static auto logger = getLogger("Util");
 
 void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &actionDescription) {
   if (errnum != JVMTI_ERROR_NONE) {
     char *errnum_str = nullptr;
     jvmti->GetErrorName(errnum, &errnum_str);
 
-    log.error() << errnum << "(" << errnum_str << "): " << actionDescription << std::endl;
+    logger->error("{}({]): {}", errnum, errnum_str, actionDescription);
 
     jvmti->Deallocate((unsigned char *) errnum_str);
   }
@@ -21,7 +32,7 @@ void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &ac
 
 bool checkJniException(JNIEnv *jni, const std::string &actionDescription) {
   if (jni->ExceptionCheck()) {
-    log.error(actionDescription);
+    logger->error(actionDescription);
     jni->ExceptionDescribe();
     jni->ExceptionClear();
     return true;
@@ -36,30 +47,30 @@ std::string jstringToString(JNIEnv *jni, jstring str) {
   }
 
   //Returns length without null terminator space
-  jint stringByteLength = jni->GetStringUTFLength(str) + 1;
-  jint stringLength = jni->GetStringLength(str);
+  size_t stringByteLength = jni->GetStringUTFLength(str) + 1;
+  size_t stringLength = jni->GetStringLength(str);
 
-  char *cstring = (char *) malloc(stringByteLength);
-  jni->GetStringUTFRegion(str, 0, stringLength, cstring);
+  char *cstring = new char[stringByteLength];
+  jni->GetStringUTFRegion(str, 0, (jsize) stringLength, cstring);
   std::string retval(cstring);
-  free(cstring);
+  delete[] cstring;
 
   return retval;
 }
 
 std::tuple<std::string, std::string> getMethodNameAndSignature(jvmtiEnv *jvmti, jmethodID method) {
-  uint8_t *methodName;
-  uint8_t *methodSignature;
+  char *methodName;
+  char *methodSignature;
   jvmtiError err;
 
-  err = jvmti->GetMethodName(method, (char **) &methodName, (char **) &methodSignature, NULL);
+  err = jvmti->GetMethodName(method, &methodName, &methodSignature, nullptr);
   check_jvmti_error(jvmti, err, "Get method name");
 
-  auto nameAndSignature = std::make_tuple(std::string((char *) methodName), std::string((char *) methodSignature));
+  auto nameAndSignature = std::make_tuple(std::string(methodName), std::string(methodSignature));
 
-  err = jvmti->Deallocate(methodName);
+  err = jvmti->Deallocate((uint8_t *) methodName);
   check_jvmti_error(jvmti, err, "Deallocate methodName");
-  err = jvmti->Deallocate(methodSignature);
+  err = jvmti->Deallocate((uint8_t *) methodSignature);
   check_jvmti_error(jvmti, err, "Deallocate methodSignature");
 
   return nameAndSignature;
@@ -70,7 +81,6 @@ std::string getClassName(JNIEnv *jni, jclass klass) {
 
   jclass cls = (jclass) jni->CallObjectMethod(klass, getClassID);
 
-  //Unfortunately calling this directly on class returns null
   jmethodID getNameID = jni->GetMethodID(cls, "getName", "()Ljava/lang/String;");
 
   jstring className = (jstring) jni->CallObjectMethod(klass, getNameID);
@@ -84,7 +94,7 @@ std::string getExceptionMessage(JNIEnv *jni, jobject exception) {
   jmethodID getMessageID = jni->GetMethodID(exceptionClass, "getMessage", "()Ljava/lang/String;");
 
   if (checkJniException(jni, "Getting getMessage method from exception")) {
-    log.info("Exception while calling Exception#getMessage");
+    logger->warn("Exception while calling Exception#getMessage");
     return "";
   }
 
@@ -262,54 +272,6 @@ std::string parseMethodSignature(const std::string &signature, const std::string
 
 }
 
-Method::Method(std::string className, std::string methodName, const std::string &signature) : className(std::move(className)), methodName(std::move(methodName)) {
-  size_t pos = 0;
-
-  if (signature.empty() || signature[pos] != '(') {
-    throw std::invalid_argument("Signature must begin with '('");
-  }
-  pos++;
-
-  std::string type;
-  while (pos < signature.size()) {
-    if (signature[pos] == ')') {
-      pos++;
-      continue;
-    }
-    type = toJavaTypeName(signature, pos, &pos);
-
-    if (pos != signature.size()) {
-      parameterTypes.push_back(type);
-    }
-    else {
-      returnType = type;
-    }
-
-  }
-}
-
-Method Method::readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci) {
-  uint8_t opCode = code.getOpcode(bci);
-  if (opCode < OpCodes::INVOKEVIRTUAL || opCode > OpCodes::INVOKEINTERFACE) {
-    throw std::invalid_argument(formatString("Opcode %d is not a known invoke", opCode));
-  }
-
-  const uint16_t refIndex = ByteVectorUtil::readuint16(code.getCode(), bci + 1);
-  return readFromMemberRef(constPool, refIndex);
-}
-
-//TODO: checks
-Method Method::readFromMemberRef(const ConstPool &constPool, size_t refId) {
-  const auto &memberRef = dynamic_cast<const MemberRefInfo &> (constPool.get(refId));
-  const auto &nameAndTypeRef = dynamic_cast<const NameAndTypeInfo &>(constPool.get(memberRef.getNameAndTypeIndex()));
-
-  std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
-  std::string methodName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
-  std::string methodSignature = constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false);
-
-  return Method(className, methodName, methodSignature);
-}
-
 const uint8_t loadStoreSlotLookupTable[] = {
     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //0-9
     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, //10-19
@@ -325,34 +287,10 @@ const uint8_t loadStoreSlotLookupTable[] = {
  * Get local variable slot for 1 byte load/store opcodes e.g. ALOAD_1 -> 1
  */
 uint8_t opcodeSlot(uint8_t opCode) {
-  if (opCode >= ILOAD_0 && opCode <= ASTORE_3) {
+  if (opCode >= OpCodes::ILOAD_0 && opCode <= OpCodes::ASTORE_3) {
     uint8_t val = loadStoreSlotLookupTable[opCode];
     if (val != 9) { return val; }
   }
 
   throw std::invalid_argument(formatString("Opcode is not a valid 1 byte load/store: %s", Constants::OpcodeMnemonic[opCode]));
-}
-
-Field::Field(std::string className, std::string fieldName, std::string typeName) :
-    className(std::move(className)), fieldName(std::move(fieldName)), typeName(std::move(typeName)) {}
-
-Field Field::readFromFieldInsn(const CodeAttribute &code, const ConstPool &constPool, size_t bci) {
-  uint8_t opCode = code.getOpcode(bci);
-  if (opCode != OpCodes::GETFIELD && opCode != OpCodes::PUTFIELD && opCode != OpCodes::GETSTATIC && opCode != OpCodes::PUTSTATIC) {
-    throw std::invalid_argument("Opcode is not a field access");
-  }
-
-  uint16_t fieldRef = ByteVectorUtil::readuint16(code.getCode(), bci + 1);
-  return readFromMemberRef(constPool, fieldRef);
-}
-
-Field Field::readFromMemberRef(const ConstPool &constPool, size_t refId) {
-  const auto &memberRef = dynamic_cast<const MemberRefInfo &> (constPool.get(refId));
-  const auto &nameAndTypeRef = dynamic_cast<const NameAndTypeInfo &>(constPool.get(memberRef.getNameAndTypeIndex()));
-
-  std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
-  std::string fieldName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
-  std::string typeName = toJavaClassName(constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false));
-
-  return Field(className, fieldName, typeName);
 }

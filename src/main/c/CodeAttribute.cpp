@@ -1,10 +1,12 @@
 #include "CodeAttribute.h"
 
+#include <spdlog.h>
+
 #include "util.h"
 #include "Constants.h"
 #include "logging.h"
 
-static Logger log("CodeAttribute");
+static auto logger = getLogger("Bytecode");
 
 CodeAttribute::CodeAttribute(std::vector<uint8_t> code, LocalVariableTable localVariables) : code(std::move(code)), localVariables(std::move(localVariables)) {
   init();
@@ -29,126 +31,126 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
   uint8_t opcode = code[offset];
 
   switch (opcode) {
-    case BIPUSH:
+    case OpCodes::BIPUSH:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], code[offset + 1]);
-    case SIPUSH:
+    case OpCodes::SIPUSH:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1));
-    case LDC:
+    case OpCodes::LDC:
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(code[offset + 1], false);
-    case LDC_W:
-    case LDC2_W: {
+    case OpCodes::LDC_W:
+    case OpCodes::LDC2_W: {
       const uint16_t constantIndex = ByteVectorUtil::readuint16(code, offset + 1);
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(constantIndex, false);
     }
-    case ILOAD:
-    case LLOAD:
-    case FLOAD:
-    case DLOAD:
-    case ALOAD:
-    case ISTORE:
-    case LSTORE:
-    case FSTORE:
-    case DSTORE:
-    case ASTORE:
+    case OpCodes::ILOAD:
+    case OpCodes::LLOAD:
+    case OpCodes::FLOAD:
+    case OpCodes::DLOAD:
+    case OpCodes::ALOAD:
+    case OpCodes::ISTORE:
+    case OpCodes::LSTORE:
+    case OpCodes::FSTORE:
+    case OpCodes::DSTORE:
+    case OpCodes::ASTORE:
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + printLocalVariable(code[offset + 1]);
-    case ILOAD_0:
-    case ILOAD_1:
-    case ILOAD_2:
-    case ILOAD_3:
-    case LLOAD_0:
-    case LLOAD_1:
-    case LLOAD_2:
-    case LLOAD_3:
-    case FLOAD_0:
-    case FLOAD_1:
-    case FLOAD_2:
-    case FLOAD_3:
-    case DLOAD_0:
-    case DLOAD_1:
-    case DLOAD_2:
-    case DLOAD_3:
-    case ALOAD_0:
-    case ALOAD_1:
-    case ALOAD_2:
-    case ALOAD_3:
-    case ISTORE_0:
-    case ISTORE_1:
-    case ISTORE_2:
-    case ISTORE_3:
-    case LSTORE_0:
-    case LSTORE_1:
-    case LSTORE_2:
-    case LSTORE_3:
-    case FSTORE_0:
-    case FSTORE_1:
-    case FSTORE_2:
-    case FSTORE_3:
-    case DSTORE_0:
-    case DSTORE_1:
-    case DSTORE_2:
-    case DSTORE_3:
-    case ASTORE_0:
-    case ASTORE_1:
-    case ASTORE_2:
-    case ASTORE_3: {
+    case OpCodes::ILOAD_0:
+    case OpCodes::ILOAD_1:
+    case OpCodes::ILOAD_2:
+    case OpCodes::ILOAD_3:
+    case OpCodes::LLOAD_0:
+    case OpCodes::LLOAD_1:
+    case OpCodes::LLOAD_2:
+    case OpCodes::LLOAD_3:
+    case OpCodes::FLOAD_0:
+    case OpCodes::FLOAD_1:
+    case OpCodes::FLOAD_2:
+    case OpCodes::FLOAD_3:
+    case OpCodes::DLOAD_0:
+    case OpCodes::DLOAD_1:
+    case OpCodes::DLOAD_2:
+    case OpCodes::DLOAD_3:
+    case OpCodes::ALOAD_0:
+    case OpCodes::ALOAD_1:
+    case OpCodes::ALOAD_2:
+    case OpCodes::ALOAD_3:
+    case OpCodes::ISTORE_0:
+    case OpCodes::ISTORE_1:
+    case OpCodes::ISTORE_2:
+    case OpCodes::ISTORE_3:
+    case OpCodes::LSTORE_0:
+    case OpCodes::LSTORE_1:
+    case OpCodes::LSTORE_2:
+    case OpCodes::LSTORE_3:
+    case OpCodes::FSTORE_0:
+    case OpCodes::FSTORE_1:
+    case OpCodes::FSTORE_2:
+    case OpCodes::FSTORE_3:
+    case OpCodes::DSTORE_0:
+    case OpCodes::DSTORE_1:
+    case OpCodes::DSTORE_2:
+    case OpCodes::DSTORE_3:
+    case OpCodes::ASTORE_0:
+    case OpCodes::ASTORE_1:
+    case OpCodes::ASTORE_2:
+    case OpCodes::ASTORE_3: {
       uint8_t slot = opcodeSlot(opcode);
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + printLocalVariable(slot);
     }
-    case IFEQ:
-    case IFGE:
-    case IFGT:
-    case IFLE:
-    case IFLT:
-    case IFNE:
-    case IFNONNULL:
-    case IFNULL:
-    case IF_ACMPEQ:
-    case IF_ACMPNE:
-    case IF_ICMPEQ:
-    case IF_ICMPGE:
-    case IF_ICMPGT:
-    case IF_ICMPLE:
-    case IF_ICMPLT:
-    case IF_ICMPNE:
+    case OpCodes::IFEQ:
+    case OpCodes::IFGE:
+    case OpCodes::IFGT:
+    case OpCodes::IFLE:
+    case OpCodes::IFLT:
+    case OpCodes::IFNE:
+    case OpCodes::IFNONNULL:
+    case OpCodes::IFNULL:
+    case OpCodes::IF_ACMPEQ:
+    case OpCodes::IF_ACMPNE:
+    case OpCodes::IF_ICMPEQ:
+    case OpCodes::IF_ICMPGE:
+    case OpCodes::IF_ICMPGT:
+    case OpCodes::IF_ICMPLE:
+    case OpCodes::IF_ICMPLT:
+    case OpCodes::IF_ICMPNE:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
-    case IINC:
+    case OpCodes::IINC:
       return formatString("%-15s %d, %d", Constants::OpcodeMnemonic[opcode], code[offset + 1], ByteVectorUtil::readint8(code, offset + 2));
-    case GOTO:
-    case JSR:
+    case OpCodes::GOTO:
+    case OpCodes::JSR:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
-    case RET:
+    case OpCodes::RET:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], code[offset + 1]);
-    case TABLESWITCH:
+    case OpCodes::TABLESWITCH:
       return "";  //TODO
-    case LOOKUPSWITCH:
+    case OpCodes::LOOKUPSWITCH:
       return "";  //TODO
-    case GETSTATIC:       //Fieldref
-    case PUTSTATIC:
-    case GETFIELD:
-    case PUTFIELD:
-    case INVOKEVIRTUAL:   //Methodref
-    case INVOKESPECIAL:
-    case INVOKESTATIC:
-    case INVOKEINTERFACE: //InterfaceMethodref
-    case INVOKEDYNAMIC:   //MethodHandle
-    case NEW:             //Class
-    case CHECKCAST:
-    case ANEWARRAY: {
+    case OpCodes::GETSTATIC:       //Fieldref
+    case OpCodes::PUTSTATIC:
+    case OpCodes::GETFIELD:
+    case OpCodes::PUTFIELD:
+    case OpCodes::INVOKEVIRTUAL:   //Methodref
+    case OpCodes::INVOKESPECIAL:
+    case OpCodes::INVOKESTATIC:
+    case OpCodes::INVOKEINTERFACE: //InterfaceMethodref
+    case OpCodes::INVOKEDYNAMIC:   //MethodHandle
+    case OpCodes::NEW:             //Class
+    case OpCodes::CHECKCAST:
+    case OpCodes::ANEWARRAY: {
       const uint16_t refIndex = ByteVectorUtil::readuint16(code, offset + 1);
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(refIndex, false);
     }
-    case MULTIANEWARRAY: {
+    case OpCodes::MULTIANEWARRAY: {
       const uint16_t refIndex = ByteVectorUtil::readuint16(code, offset + 1);
       return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(refIndex, false) + formatString(" %d", code[offset + 3]);
     }
-    case NEWARRAY: {
+    case OpCodes::NEWARRAY: {
       uint8_t type = code[offset + 1];
       return formatString("%-15s %s", Constants::OpcodeMnemonic[opcode], Constants::ArrayType[type]);
     }
-    case GOTO_W:
-    case JSR_W:
+    case OpCodes::GOTO_W:
+    case OpCodes::JSR_W:
       return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
-    case WIDE:
+    case OpCodes::WIDE:
       //TODO
     default:
       return formatString("%-15s", Constants::OpcodeMnemonic[opcode]);

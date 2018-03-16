@@ -13,6 +13,14 @@ include_directories($ENV{JAVA_HOME}/include)
 include_directories($ENV{JAVA_HOME}/include/linux)
 include_directories(src/main/include)
 
+set(SPDLOG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/spdlog/include/spdlog CACHE PATH "spdlog include directory")
+find_path(SPDLOG_INCLUDE_DIR ...)
+if ((NOT SPDLOG_INCLUDE_DIR) OR (NOT EXISTS ${SPDLOG_INCLUDE_DIR}))
+  message("Init spdlog submodule")
+  execute_process(COMMAND git submodule update --init -- external/spdlog WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
+include_directories(${SPDLOG_INCLUDE_DIR})
+
 file(GLOB SOURCES src/main/c/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})

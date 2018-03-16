@@ -3,8 +3,9 @@
 #include <string>
 #include <map>
 #include <iterator>
-#include <Analyzer.h>
+#include <spdlog.h>
 
+#include "analyzer.h"
 #include "LocalVariableTable.h"
 #include "Constants.h"
 #include "ConstPool.h"
@@ -15,7 +16,7 @@
 using std::string;
 using std::vector;
 
-static Logger log("ExceptionCallback");
+static auto logger = getLogger("ExceptionCallback");
 
 /*
  * Some ideas:
@@ -54,7 +55,7 @@ static Logger log("ExceptionCallback");
  * }
  */
 bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, const string methodSignature, jlocation location) {
-  if (codeAttribute.getOpcode((size_t) location) == ATHROW) {
+  if (codeAttribute.getOpcode((size_t) location) == OpCodes::ATHROW) {
 
     InstructionIterator iter(codeAttribute);
 
@@ -65,32 +66,32 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
      */
     for (; iter.getOffset() + 11 < codeAttribute.getSize(); iter++) {
 
-      log.debug(formatString("Current opcode: %s", Constants::OpcodeMnemonic[std::get<1>(*iter)]));
+      logger->debug(formatString("Current opcode: %s", Constants::OpcodeMnemonic[std::get<1>(*iter)]));
 
       // Record current stack top via visitor?
 
-      if (std::get<1>(*iter) != ACONST_NULL) { continue; }
-      log.debug("aconst_null");
+      if (std::get<1>(*iter) != OpCodes::ACONST_NULL) { continue; }
+      logger->debug("aconst_null");
       iter++;
-      if (std::get<1>(*iter) != IF_ACMPNE) { continue; }
-      log.debug("if_acmpne");
+      if (std::get<1>(*iter) != OpCodes::IF_ACMPNE) { continue; }
+      logger->debug("if_acmpne");
       iter++;
-      if (std::get<1>(*iter) != NEW) { continue; }
-      log.debug("new");
+      if (std::get<1>(*iter) != OpCodes::NEW) { continue; }
+      logger->debug("new");
       iter++;
-      if (std::get<1>(*iter) != DUP) { continue; }
-      log.debug("dup");
+      if (std::get<1>(*iter) != OpCodes::DUP) { continue; }
+      logger->debug("dup");
       iter++;
-      if (std::get<1>(*iter) != INVOKESPECIAL) { continue; }
-      log.debug("invokespecial");
+      if (std::get<1>(*iter) != OpCodes::INVOKESPECIAL) { continue; }
+      logger->debug("invokespecial");
       iter++;
-      if (std::get<1>(*iter) != ATHROW) { continue; }
+      if (std::get<1>(*iter) != OpCodes::ATHROW) { continue; }
 
-      log.debug("Method checks for null explicitly");
+      logger->debug("Method checks for null explicitly");
       return true;
     }
 
-    log.debug(formatString("Skipping explicit throw site %s%s", methodName.c_str(), methodSignature.c_str()));
+    logger->debug(formatString("Skipping explicit throw site %s%s", methodName.c_str(), methodSignature.c_str()));
 //    return false;
   }
   return true;
@@ -98,20 +99,6 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
 
 std::string getExceptionMessage(const ConstPool &cp, const CodeAttribute &code, const LocalVariableTable &vars, size_t location) {
   return describeNPEInstruction(cp, code, vars, location);
-
-  if (auto op = code.getOpcode(location); op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
-    Method method = Method::readFromCodeInvoke(code, cp, location);
-    std::string sourceMessage = traceInvokeInstance(cp, code, vars, location);
-    return "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null " + sourceMessage;
-  }
-  else if(op == OpCodes::ATHROW) {
-
-  }
-  else if(op == OpCodes::ARRAYLENGTH) {
-    // Should follow same analysis as 0 arg instance method invoke
-  }
-  return "NOT INVOKE";
-
 }
 
 void JNICALL callback_Exception(jvmtiEnv *jvmti,
@@ -122,6 +109,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
                                 jobject exception,
                                 jmethodID catch_method,
                                 jlocation catch_location) {
+//  logger->set_level(spdlog::level::trace);
 
   jvmtiError err;
   jboolean nativeMethod;
@@ -133,25 +121,13 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
     return;
   }
 
-//  jint lineTableLength;
-//  jvmtiLineNumberEntry *lineNumberTable;
-//
-//  err = jvmti->GetLineNumberTable(method, &lineTableLength, &lineNumberTable);
-//  if (err != JVMTI_ERROR_ABSENT_INFORMATION) {
-//    check_jvmti_error(jvmti, err, "Get LineNumberTable");
-//    err = jvmti->Deallocate((unsigned char *) lineNumberTable);
-//    check_jvmti_error(jvmti, err, "Deallocate lineNumberTable");
-//  }
-
   jclass methodClass;
   err = jvmti->GetMethodDeclaringClass(method, &methodClass);
   check_jvmti_error(jvmti, err, "Get method declaring class");
 
   jclass exceptionClass = jni->GetObjectClass(exception);
 
-  string methodName;
-  string methodSignature;
-  std::tie(methodName, methodSignature) = getMethodNameAndSignature(jvmti, method);
+  auto [methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
 
   string methodClassName = getClassName(jni, methodClass);
   string exceptionClassName = getClassName(jni, exceptionClass);
@@ -177,19 +153,6 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
 
   if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
 
-  /**
-   * EXAMPLE: "invoking [Class&Method] on null [something obtained from XYZ]"
-   * Following options depending on where null originated
-   * local variable is null
-   *    display local variable name if debug info present
-   *    slot number and type if not(bonus: track lvar lifetime, last method/aconst_null/etc that produced value)
-   * chained(value only on stack, never stored in slot)
-   *    display method call that pushed value to stack
-   * method param
-   *    param name and type
-   *    type and index if debug info not present
-   */
-
   std::string exceptionDetail = getExceptionMessage(constPool, codeAttribute, localVariables, location);
 
   jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
@@ -199,18 +162,14 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
 
 //  return;
 
-  log.debug() << exceptionClassName << ": " << exceptionMessage << "\n"
-              << formatString("\tat %s.%s[%d]%s", methodClassName.c_str(), methodName.c_str(), location, methodSignature.c_str()) << std::endl;
+  logger->debug("{}: {}", exceptionClassName, exceptionMessage);
+  logger->debug("\tat {}.{}[{}]{}", methodClassName, methodName, location, methodSignature);
 
   size_t beginOffset = location > 200 ? location - 50 : 0;  //Limit printing too much
-  std::ostream &out = log.debug() << "Method instructions:\n";
+  logger->debug("Method instructions:");
   for (; iter.getOffset() < codeAttribute.getSize() /*&& iter.getOffset() <= location*/; iter++) {
     if (iter.getOffset() >= beginOffset) {
-      out << formatString("%-6d: %s\n", iter.getOffset(), (*iter).c_str());
-//          out << std::setw(6) << std::setfill(' ') << std::left << iter.getOffset() << ": " << *iter << "\n";
+      logger->debug("{:<6}: {}", iter.getOffset(), (*iter));
     }
   }
-
-
-//  log.debug("End exceptionCallback");
 }

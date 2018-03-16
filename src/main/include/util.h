@@ -4,12 +4,14 @@
 #include <utility>
 #include <vector>
 #include <cstdarg>
+#include <jni.h>
+#include <jvmti.h>
+#include <logger.h>
 
 #include "ConstPool.h"
 #include "CodeAttribute.h"
 
-#include "jni.h"
-#include "jvmti.h"
+std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName);
 
 bool checkJniException(JNIEnv *jni, const std::string &actionDescription);
 
@@ -17,7 +19,7 @@ void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &ac
 
 std::string jstringToString(JNIEnv *jni, jstring str);
 
-std::tuple<std::string,std::string> getMethodNameAndSignature(jvmtiEnv *jvmti, jmethodID method);
+std::tuple<std::string, std::string> getMethodNameAndSignature(jvmtiEnv *jvmti, jmethodID method);
 
 std::string getClassName(JNIEnv *jni, jclass klass);
 
@@ -31,70 +33,11 @@ std::string formatString(const char *format, ...);
 
 std::string toJavaClassName(const std::string &jvmClassName);
 
-std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size_t *outEndPos);
+std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos = 0, size_t *outEndPos = nullptr);
 
 std::string parseMethodSignature(const std::string &signature, const std::string &methodName);
 
 uint8_t opcodeSlot(uint8_t opCode);
-
-class Method {
-  std::string className;
-  std::string returnType;
-  std::string methodName;
-  std::vector<std::string> parameterTypes;
-
-public:
-  Method(std::string className, std::string methodName, const std::string &signature);
-
-  static Method readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
-
-  static Method readFromMemberRef(const ConstPool &constPool, size_t refId);
-
-  const std::string &getClassName() const {
-    return className;
-  }
-
-  const std::string &getReturnType() const {
-    return returnType;
-  }
-
-  const std::string &getMethodName() const {
-    return methodName;
-  }
-
-  const std::vector<std::string> &getParameterTypes() const {
-    return parameterTypes;
-  }
-
-  const size_t getParameterCount() const {
-    return parameterTypes.size();
-  }
-};
-
-class Field {
-  std::string className;
-  std::string fieldName;
-  std::string typeName;
-
-public:
-  Field(std::string className, std::string fieldName, std::string typeName);
-
-  static Field readFromFieldInsn(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
-
-  static Field readFromMemberRef(const ConstPool &constPool, size_t refId);
-
-  const std::string &getClassName() const {
-    return className;
-  }
-
-  const std::string &getFieldName() const {
-    return fieldName;
-  }
-
-  const std::string &getTypeName() const {
-    return typeName;
-  }
-};
 
 //TODO: Extract to cpp
 class ByteVectorUtil {

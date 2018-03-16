@@ -37,6 +37,7 @@
 					<Add directory="/usr/lib/jvm/default-java/include"/>
 					<Add directory="/usr/lib/jvm/default-java/include/linux"/>
 					<Add directory="/home/meelis/repo/exception-info/src/main/include"/>
+					<Add directory="/home/meelis/repo/exception-info/external/spdlog/include/spdlog"/>
 					<Add directory="/usr/include/c++/7"/>
 					<Add directory="/usr/include/x86_64-linux-gnu/c++/7"/>
 					<Add directory="/usr/include/c++/7/backward"/>
@@ -63,6 +64,7 @@
 					<Add directory="/usr/lib/jvm/default-java/include"/>
 					<Add directory="/usr/lib/jvm/default-java/include/linux"/>
 					<Add directory="/home/meelis/repo/exception-info/src/main/include"/>
+					<Add directory="/home/meelis/repo/exception-info/external/spdlog/include/spdlog"/>
 					<Add directory="/usr/include/c++/7"/>
 					<Add directory="/usr/include/x86_64-linux-gnu/c++/7"/>
 					<Add directory="/usr/include/c++/7/backward"/>
@@ -100,6 +102,9 @@
 			<Option target="exception_info"/>
 		</Unit>
 		<Unit filename="/home/meelis/repo/exception-info/src/main/c/LocalVariableTable.cpp">
+			<Option target="exception_info"/>
+		</Unit>
+		<Unit filename="/home/meelis/repo/exception-info/src/main/c/analyzer.cpp">
 			<Option target="exception_info"/>
 		</Unit>
 		<Unit filename="/home/meelis/repo/exception-info/src/main/c/exceptionCallback.cpp">

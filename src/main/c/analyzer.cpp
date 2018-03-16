@@ -1,9 +1,8 @@
-#pragma once
+#include "analyzer.h"
 
-#include <stack>
-#include <optional>
-#include "CodeAttribute.h"
 #include "util.h"
+#include "Method.h"
+#include "Field.h"
 
 std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &code, const LocalVariableTable &vars, size_t location, size_t stackExcess) {
   const std::vector<size_t> &instructions = code.getInstructions();
@@ -20,7 +19,7 @@ std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &
     if (opCode >= OpCodes::ILOAD && opCode <= OpCodes::ALOAD_3) {
       if (stackExcess == 0) {
         size_t slot;
-        if (opCode <= ALOAD) {
+        if (opCode <= OpCodes::ALOAD) {
           slot = ByteVectorUtil::readuint16(code.getCode(), off + 1);
         }
         else {
@@ -29,7 +28,7 @@ std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &
 
         if (auto varInfo = vars.getEntry(slot)) {
           auto[name, signature] = *varInfo;
-          return "local variable " + name + ":" + toJavaTypeName(signature, 0, nullptr);
+          return "local variable " + name + ":" + toJavaTypeName(signature);
         }
         else {
           return formatString("local variable in slot %d", slot);
@@ -42,7 +41,7 @@ std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &
     else if (opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE_3) {
       stackExcess++;
     }
-      //Indy? Invokespecial?
+    //Indy? Invokespecial?
     else if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
       //Calc stack diff from method invoke
       auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
@@ -50,7 +49,7 @@ std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &
       if (invokedMethod.getReturnType() != "V") { invokeStackDelta--; }
       if (opCode != OpCodes::INVOKESTATIC) { invokeStackDelta++; }
 
-      // The stack depth is fitting and the method invocation before it
+      // The stack depth is fitting and the method invocation before it added to top of stack
       if (stackExcess == 0 && invokedMethod.getReturnType() != "V") {
         return "object returned from " + invokedMethod.getClassName() + "#" + invokedMethod.getMethodName();
       }
@@ -101,79 +100,12 @@ std::string describeNPEInstruction(const ConstPool &cp, const CodeAttribute &cod
     stackExcess = 0;
   }
   else if (op == OpCodes::ATHROW) {
-    errorSource = "[athrow]";
+    errorSource = "[athrow] ";
     stackExcess = 0;
   }
   else {
-    return "[Unknown NPE cause]";
+    return "[Unknown NPE cause] ";
   }
 
   return errorSource + traceDetailedCause(cp, code, vars, location, stackExcess);
-}
-
-std::string traceInvokeInstance(const ConstPool &constPool, const CodeAttribute &code, const LocalVariableTable &vars, size_t invokeBci) {
-//  return describeInstruction(constPool, code, vars, invokeBci);
-
-  const std::vector<size_t> &instructions = code.getInstructions();
-  size_t ins = 0;
-  for (size_t off : instructions) {
-    if (off == invokeBci) { break; }
-    ins++;
-  }
-
-  // Walk back to where 'this' was obtained
-  size_t pos = instructions[ins];
-  auto method = Method::readFromCodeInvoke(code, constPool, pos);
-
-  // go back this many elements in stack
-  size_t stackExcess = method.getParameterCount();
-
-  while (stackExcess != -1 && ins != -1) {
-    ins--;
-
-    size_t off = instructions[ins];
-    uint8_t opCode = code.getOpcode(off);
-    if (opCode >= OpCodes::ILOAD && opCode <= OpCodes::ALOAD_3) {
-      if (stackExcess == 0) {
-        size_t slot;
-        if (opCode <= ALOAD) {
-          slot = ByteVectorUtil::readuint16(code.getCode(), off + 1);
-        }
-        else {
-          slot = opcodeSlot(opCode);
-        }
-
-        if (auto varInfo = vars.getEntry(slot)) {
-          auto[name, signature] = *varInfo;
-          return "local variable " + name + ":" + toJavaTypeName(signature, 0, nullptr);
-        }
-        else {
-          return formatString("local variable in slot %d", slot);
-        }
-      }
-      else {
-        stackExcess--;
-      }
-    }
-    else if (opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE_3) {
-      stackExcess++;
-    }
-      //Indy? Invokespecial?
-    else if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
-      //Calc stack diff from method invoke
-      auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
-      int invokeStackDelta = invokedMethod.getParameterCount();
-      if (invokedMethod.getReturnType() != "V") { invokeStackDelta--; }
-      if (opCode != OpCodes::INVOKESTATIC) { invokeStackDelta++; }
-
-      // The stack depth is fitting and the method invocation before it
-      if (stackExcess == 0 && invokedMethod.getReturnType() != "V") {
-        return "object returned from " + invokedMethod.getClassName() + "#" + invokedMethod.getMethodName();
-      }
-
-      stackExcess += invokeStackDelta;
-    }
-  }
-
-  return "[unimplemented]";
 }
