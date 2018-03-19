@@ -25,5 +25,5 @@ file(GLOB SOURCES src/main/c/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "exceptioninfo")
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "npeblame")
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "64")
