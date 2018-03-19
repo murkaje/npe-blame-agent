@@ -21,7 +21,7 @@ if ((NOT SPDLOG_INCLUDE_DIR) OR (NOT EXISTS ${SPDLOG_INCLUDE_DIR}))
 endif ()
 include_directories(${SPDLOG_INCLUDE_DIR})
 
-file(GLOB SOURCES src/main/c/*.cpp)
+file(GLOB SOURCES src/main/cpp/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
