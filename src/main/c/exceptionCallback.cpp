@@ -135,6 +135,8 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
 
   if (exceptionClassName != "java.lang.NullPointerException") { return; }
 
+  //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and pop a stack frame
+
   // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
 //  if (!exceptionMessage.empty()) { return; }
 
