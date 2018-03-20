@@ -11,25 +11,12 @@
 #include "ConstPool.h"
 #include "CodeAttribute.h"
 #include "util.h"
-#include "logging.h"
 
 using std::string;
 using std::vector;
 
 static auto logger = getLogger("ExceptionCallback");
 
-/*
- * Some ideas:
- *  Minimize so that native agent only adds extra field to java.lang.Exception, other code to java
- *  If our logger prints exception, see if we have additional info(valid to start griffin without native) and print it
- *
- *  Check if exception is caught in same method/class, print in this case even if opcode[location] == ATHROW as it probably is
- *  if(var == null) {
- *    throw new NullPointerException();
- *  }
- */
-
-//TODO: Maybe something better as it could be a useful if(someVar == null) { throw new NullPointerException(); }
 /*
  * We could search the previous instructions for
  * new Ljava/lang/NullPointerException;
@@ -97,10 +84,6 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
   return true;
 }
 
-std::string getExceptionMessage(const ConstPool &cp, const CodeAttribute &code, const LocalVariableTable &vars, size_t location) {
-  return describeNPEInstruction(cp, code, vars, location);
-}
-
 void JNICALL callback_Exception(jvmtiEnv *jvmti,
                                 JNIEnv *jni,
                                 jthread thread,
@@ -109,7 +92,6 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
                                 jobject exception,
                                 jmethodID catch_method,
                                 jlocation catch_location) {
-//  logger->set_level(spdlog::level::trace);
 
   jvmtiError err;
   jboolean nativeMethod;
@@ -121,30 +103,36 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
     return;
   }
 
-  jclass methodClass;
-  err = jvmti->GetMethodDeclaringClass(method, &methodClass);
-  check_jvmti_error(jvmti, err, "Get method declaring class");
-
   jclass exceptionClass = jni->GetObjectClass(exception);
-
-  auto [methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
-
-  string methodClassName = getClassName(jni, methodClass);
   string exceptionClassName = getClassName(jni, exceptionClass);
   string exceptionMessage = getExceptionMessage(jni, exception);
 
   if (exceptionClassName != "java.lang.NullPointerException") { return; }
 
-  //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and pop a stack frame
-
   // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
 //  if (!exceptionMessage.empty()) { return; }
 
+  auto [methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
+
+  jclass methodClass;
+  err = jvmti->GetMethodDeclaringClass(method, &methodClass);
+  check_jvmti_error(jvmti, err, "Get method declaring class");
+
+  string methodClassName = getClassName(jni, methodClass);
+
+  //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and analyze method in previous frame
+  if(methodClassName == "java.util.Objects" && methodName == "requireNonNull") {
+    jvmti->GetFrameLocation(thread, 1, &method, &location);
+
+    std::tie(methodName, methodSignature) = getMethodNameAndSignature(jvmti, method);
+    err = jvmti->GetMethodDeclaringClass(method, &methodClass);
+    check_jvmti_error(jvmti, err, "Get method declaring class");
+    methodClassName = getClassName(jni, methodClass);
+  }
+
   vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
 
-  jint cpCount;
-  vector<uint8_t> constPoolBytes;
-  std::tie(cpCount, constPoolBytes) = getConstPool(jvmti, methodClass);
+  auto [cpCount, constPoolBytes] = getConstPool(jvmti, methodClass);
 
   LocalVariableTable localVariables(jvmti, method);
 
@@ -155,7 +143,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
 
   if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
 
-  std::string exceptionDetail = getExceptionMessage(constPool, codeAttribute, localVariables, location);
+  std::string exceptionDetail = describeNPEInstruction(constPool, codeAttribute, localVariables, location);
 
   jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
   jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");

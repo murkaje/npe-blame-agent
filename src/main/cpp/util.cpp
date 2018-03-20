@@ -5,14 +5,13 @@
 #include <sstream>
 #include <spdlog.h>
 
-#include <Constants.h>
-#include <CodeAttribute.h>
+#include "Constants.h"
+#include "CodeAttribute.h"
 
 std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
   auto log = spdlog::get(std::string(loggerName));
   if(!log) {
     log = spdlog::stdout_color_st(std::string(loggerName));
-    log->set_level(spdlog::level::trace);
   }
   return log;
 }

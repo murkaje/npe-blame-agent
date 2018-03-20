@@ -4,7 +4,6 @@
 
 #include "util.h"
 #include "Constants.h"
-#include "logging.h"
 
 static auto logger = getLogger("Bytecode");
 

@@ -3,13 +3,11 @@
 #include <fstream>
 #include <jvmti.h>
 #include <jni.h>
+#include <spdlog.h>
 
 #include "CodeAttribute.h"
 #include "util.h"
 #include "exceptionCallback.h"
-#include "logging.h"
-
-#include <spdlog.h>
 
 static auto logger = getLogger("Boot");
 
@@ -21,6 +19,11 @@ JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *reserved)
 }
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
+  std::string opts = options == nullptr ? "" : std::string{options};
+  if (opts == "debug") {
+    spdlog::set_level(spdlog::level::debug);
+  }
+
   spdlog::set_pattern("%Y-%m-%d %T.%e %L [%n] %v");
   logger->info("Agent_OnLoad");
 

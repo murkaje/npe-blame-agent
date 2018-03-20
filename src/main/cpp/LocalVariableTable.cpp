@@ -1,13 +1,8 @@
 #include "LocalVariableTable.h"
-#include "util.h"
 
 #include <string>
 
-using std::tuple;
-using std::string;
-using std::make_tuple;
-using std::optional;
-using std::string_literals::operator ""s;
+#include "util.h"
 
 LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {
   jint localVariableEntryCount = 0;
@@ -19,7 +14,7 @@ LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {
 
     for (int i = 0; i < localVariableEntryCount; i++) {
       int pos = localVariableTable[i].slot;
-      table.emplace(pos, make_tuple(string(localVariableTable[i].name), string(localVariableTable[i].signature)));
+      table.emplace(pos, std::make_tuple(std::string(localVariableTable[i].name), std::string(localVariableTable[i].signature)));
 
       err = jvmti->Deallocate((unsigned char *) localVariableTable[i].name);
       check_jvmti_error(jvmti, err, "Deallocate localVariableTable[i].name");
@@ -35,7 +30,7 @@ LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {
   }
 }
 
-std::optional<const tuple<const string, const string>> LocalVariableTable::getEntry(uint16_t slot) const {
+std::optional<const std::tuple<const std::string, const std::string>> LocalVariableTable::getEntry(uint16_t slot) const {
   if (auto entry = table.find(slot); entry != table.end()) {
     return entry->second;
   }

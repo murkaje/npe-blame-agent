@@ -41,7 +41,7 @@ std::string traceDetailedCause(const ConstPool &constPool, const CodeAttribute &
     else if (opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE_3) {
       stackExcess++;
     }
-    //Indy? Invokespecial?
+      //Indy? Invokespecial?
     else if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
       //Calc stack diff from method invoke
       auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
@@ -69,14 +69,20 @@ std::string describeNPEInstruction(const ConstPool &cp, const CodeAttribute &cod
   if (op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
     Method method = Method::readFromCodeInvoke(code, cp, location);
 
-    errorSource = "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null ";
-    stackExcess = method.getParameterCount();
+    if (method.getClassName() == "java.util.Objects" && method.getMethodName() == "requireNonNull") {
+      errorSource = "Assertion Objects#requireNonNull failed for null ";
+      stackExcess = 0;
+    }
+    else {
+      errorSource = "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null ";
+      stackExcess = method.getParameterCount();
+    }
   }
   else if (op >= OpCodes::GETFIELD && op <= OpCodes::PUTFIELD) {
     Field field = Field::readFromFieldInsn(code, cp, location);
     std::string putOrGet;
 
-    if(op == OpCodes::GETFIELD) {
+    if (op == OpCodes::GETFIELD) {
       putOrGet = "Getting";
       stackExcess = 0;
     }
