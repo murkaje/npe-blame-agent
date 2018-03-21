@@ -7,17 +7,19 @@
 #include "ConstPool.h"
 
 class Method {
+  //TODO: other method modifiers?
+  bool methodStatic;
   std::string className;
   std::string returnType;
   std::string methodName;
   std::vector<std::string> parameterTypes;
 
 public:
-  Method(std::string className, std::string methodName, const std::string &signature);
+  Method(std::string className, std::string methodName, const std::string &signature, bool isStatic);
 
   static Method readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
 
-  static Method readFromMemberRef(const ConstPool &constPool, size_t refId);
+  static Method readFromMemberRef(const ConstPool &constPool, size_t refId, bool isStatic);
 
   const std::string &getClassName() const {
     return className;
@@ -37,5 +39,9 @@ public:
 
   const size_t getParameterCount() const {
     return parameterTypes.size();
+  }
+
+  bool isStatic() const {
+    return methodStatic;
   }
 };

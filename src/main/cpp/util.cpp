@@ -1,16 +1,11 @@
 #include "util.h"
 
-#include <cstdarg>
-#include <algorithm>
 #include <sstream>
 #include <spdlog.h>
 
-#include "Constants.h"
-#include "CodeAttribute.h"
-
 std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
   auto log = spdlog::get(std::string(loggerName));
-  if(!log) {
+  if (!log) {
     log = spdlog::stdout_color_st(std::string(loggerName));
   }
   return log;
@@ -258,8 +253,7 @@ std::string parseMethodSignature(const std::string &signature, const std::string
     if (pos != signature.size()) {
       if (first) {
         first = false;
-      }
-      else {
+      } else {
         ss << ", ";
       }
       ss << type;

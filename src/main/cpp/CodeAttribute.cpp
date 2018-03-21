@@ -3,7 +3,6 @@
 #include <spdlog.h>
 
 #include "util.h"
-#include "Constants.h"
 
 static auto logger = getLogger("Bytecode");
 
@@ -16,7 +15,7 @@ CodeAttribute::CodeAttribute(std::vector<uint8_t> code) : code(std::move(code)) 
 }
 
 void CodeAttribute::init() {
-  for(size_t pos=0; pos < code.size();) {
+  for (size_t pos = 0; pos < code.size();) {
     instructions.push_back(pos);
     pos += Constants::InstructionLength[code[pos]];
   }
@@ -157,7 +156,7 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
 }
 
 std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
-  auto [name, desc] = localVariables.getEntry(slot).value_or(std::make_tuple("?", "?"));
+  auto[name, desc] = localVariables.getEntry(slot).value_or(std::make_tuple("?", "?"));
   return formatString("%d: name=%s type=%s", slot, name.c_str(), desc.c_str());
 }
 

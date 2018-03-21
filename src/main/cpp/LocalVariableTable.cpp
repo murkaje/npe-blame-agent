@@ -1,7 +1,5 @@
 #include "LocalVariableTable.h"
 
-#include <string>
-
 #include "util.h"
 
 LocalVariableTable::LocalVariableTable(jvmtiEnv *jvmti, jmethodID method) {

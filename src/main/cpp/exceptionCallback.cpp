@@ -5,11 +5,8 @@
 #include <iterator>
 #include <spdlog.h>
 
+#include "Method.h"
 #include "analyzer.h"
-#include "LocalVariableTable.h"
-#include "Constants.h"
-#include "ConstPool.h"
-#include "CodeAttribute.h"
 #include "util.h"
 
 using std::string;
@@ -79,7 +76,7 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
     }
 
     logger->debug(formatString("Skipping explicit throw site %s%s", methodName.c_str(), methodSignature.c_str()));
-//    return false;
+    return false;
   }
   return true;
 }
@@ -112,7 +109,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
 //  if (!exceptionMessage.empty()) { return; }
 
-  auto [methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
+  auto[methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
 
   jclass methodClass;
   err = jvmti->GetMethodDeclaringClass(method, &methodClass);
@@ -121,7 +118,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   string methodClassName = getClassName(jni, methodClass);
 
   //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and analyze method in previous frame
-  if(methodClassName == "java.util.Objects" && methodName == "requireNonNull") {
+  if (methodClassName == "java.util.Objects" && methodName == "requireNonNull") {
     jvmti->GetFrameLocation(thread, 1, &method, &location);
 
     std::tie(methodName, methodSignature) = getMethodNameAndSignature(jvmti, method);
@@ -132,7 +129,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
 
   vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
 
-  auto [cpCount, constPoolBytes] = getConstPool(jvmti, methodClass);
+  auto[cpCount, constPoolBytes] = getConstPool(jvmti, methodClass);
 
   LocalVariableTable localVariables(jvmti, method);
 
@@ -140,17 +137,20 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   CodeAttribute codeAttribute(methodBytecode, localVariables);
   InstructionPrintIterator iter(codeAttribute, constPool);
 
+//  if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
 
-  if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
+  jint modifiers;
+  err = jvmti->GetMethodModifiers(method, &modifiers);
+  check_jvmti_error(jvmti, err, "Get method modifiers");
 
-  std::string exceptionDetail = describeNPEInstruction(constPool, codeAttribute, localVariables, location);
+  //struct/class StackFrame(Method, location)?
+  Method currentFrameMethod = Method{methodClassName, methodName, methodSignature, modifiers & Modifier::STATIC};
+  std::string exceptionDetail = describeNPEInstruction(currentFrameMethod, constPool, codeAttribute, localVariables, location);
 
   jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
   jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
   jni->SetObjectField(exception, detailMessageField, detailMessage);
   jni->DeleteLocalRef(detailMessage);
-
-//  return;
 
   logger->debug("{}: {}", exceptionClassName, exceptionMessage);
   logger->debug("\tat {}.{}[{}]{}", methodClassName, methodName, location, methodSignature);

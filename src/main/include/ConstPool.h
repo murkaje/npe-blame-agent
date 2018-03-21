@@ -99,7 +99,7 @@ public:
 
   FloatInfo(float value, size_t index) : ConstInfo(index), value(value) {}
 
-  FloatInfo *clone() const override { return new  FloatInfo(*this); }
+  FloatInfo *clone() const override { return new FloatInfo(*this); }
 
   void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const override;
 
@@ -122,7 +122,7 @@ public:
 
   LongInfo(int64_t value, size_t index) : ConstInfo(index), value(value) {}
 
-  LongInfo *clone() const override { return new  LongInfo(*this); }
+  LongInfo *clone() const override { return new LongInfo(*this); }
 
   void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const override;
 
@@ -145,7 +145,7 @@ public:
 
   DoubleInfo(double value, size_t index) : ConstInfo(index), value(value) {}
 
-  DoubleInfo *clone() const override { return new  DoubleInfo(*this); }
+  DoubleInfo *clone() const override { return new DoubleInfo(*this); }
 
   void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const override;
 
@@ -168,7 +168,7 @@ public:
 
   ClassInfo(uint16_t nameIndex, size_t index) : ConstInfo(index), nameIndex(nameIndex) {}
 
-  ClassInfo *clone() const override { return new  ClassInfo(*this); }
+  ClassInfo *clone() const override { return new ClassInfo(*this); }
 
   void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const override;
 
@@ -191,7 +191,7 @@ public:
 
   StringInfo(uint16_t stringIndex, size_t index) : ConstInfo(index), stringIndex(stringIndex) {}
 
-  StringInfo *clone() const override { return new  StringInfo(*this); }
+  StringInfo *clone() const override { return new StringInfo(*this); }
 
   void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const override;
 

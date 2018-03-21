@@ -2,7 +2,6 @@
 #include <iostream>
 #include <fstream>
 #include <jvmti.h>
-#include <jni.h>
 #include <spdlog.h>
 
 #include "CodeAttribute.h"
@@ -55,11 +54,9 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
 
   if (locationFormat == JVMTI_JLOCATION_JVMBCI) {
     logger->debug("jlocation format is JVMBCI");
-  }
-  else if (locationFormat == JVMTI_JLOCATION_MACHINEPC) {
+  } else if (locationFormat == JVMTI_JLOCATION_MACHINEPC) {
     logger->debug("jlocation format is MACHINEPC");
-  }
-  else {
+  } else {
     logger->debug("jlocation format is OTHER");
   }
 
