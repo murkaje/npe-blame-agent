@@ -19,14 +19,18 @@ java.lang.NullPointerException: Invoking java.lang.String#toLowerCase on null lo
 ```
 
 ### Building
-Make sure you have c++17 compliant compiler and c++ standard library(std::optional)
+Make sure you have c++17 compliant compiler and c++ standard library(std::optional)  
+Optionally prepend CXX= to cmake to specify compiler
 ```
-cmake .
+CXX=/usr/bin/clang++-5.0 cmake .
 make
 ```
 
 ### Running
 Add `-agentpath:/path/to/npe-blame-agent/target/libnpeblame.so` to JVM options and run your application
+
+### Testing
+Integration tests available in https://github.com/murkaje/npe-blame-test
 
 ### Why is it useful
 While the line number will usually be more than enough to track down where the null originated,

@@ -43,20 +43,24 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
         return (isMethodParam ? "method parameter " : "local variable ") + name + ":" + toJavaTypeName(signature);
       } else {
         if (isMethodParam) {
-          return formatString("method parameter at index %d", (slot + currentFrameMethod.isStatic() ? 1 : 0));
+          return formatString("method parameter at index %d", (slot + (currentFrameMethod.isStatic() ? 1 : 0)));
         } else {
           return formatString("local variable in slot %d", slot);
         }
       }
     } else if (opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE_3) {
       stackExcess++;
-    } else if (opCode == OpCodes::LDC) {
+    } else if (opCode >= OpCodes::LDC && opCode <= OpCodes::LDC2_W ) {
+      if (stackExcess != 0) {
+        stackExcess--;
+      }
+    } else if(opCode == OpCodes::ACONST_NULL) {
       if (stackExcess != 0) {
         stackExcess--;
         continue;
       }
 
-      //TODO: From constant ...
+      return "constant";
     } else if (opCode == OpCodes::GETFIELD) {
       if (stackExcess != 0) {
         continue;
@@ -133,7 +137,7 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
     errorSource = "Getting array length of null ";
     stackExcess = 0;
   } else if (op == OpCodes::ATHROW) {
-    errorSource = "[athrow] ";
+    errorSource = "Throwing null ";
     stackExcess = 0;
   } else {
     return "[Unknown NPE cause] ";

@@ -144,7 +144,7 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
   check_jvmti_error(jvmti, err, "Get method modifiers");
 
   //struct/class StackFrame(Method, location)?
-  Method currentFrameMethod = Method{methodClassName, methodName, methodSignature, modifiers & Modifier::STATIC};
+  Method currentFrameMethod = Method{methodClassName, methodName, methodSignature, (modifiers & Modifier::STATIC) !=0};
   std::string exceptionDetail = describeNPEInstruction(currentFrameMethod, constPool, codeAttribute, localVariables, location);
 
   jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());

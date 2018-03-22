@@ -3,7 +3,7 @@
 #include "util.h"
 
 Method::Method(std::string className, std::string methodName, const std::string &signature, bool isStatic) :
-    className(std::move(className)), methodName(std::move(methodName)), methodStatic(isStatic) {
+    methodStatic(isStatic), className(std::move(className)), methodName(std::move(methodName)) {
   size_t pos = 0;
 
   if (signature.empty() || signature[pos] != '(') {
