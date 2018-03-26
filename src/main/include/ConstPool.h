@@ -17,6 +17,8 @@ public:
 
   explicit ConstInfo(size_t _index) : index(_index) {}
 
+  virtual ~ConstInfo() = default;
+
   virtual ConstInfo *clone() const = 0;
 
   virtual void visit(const ConstPool &constPool, std::function<void(const std::string &)> visitor, bool firstLevel = true) const = 0;

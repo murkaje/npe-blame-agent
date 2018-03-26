@@ -33,6 +33,7 @@ include_directories(${SPDLOG_INCLUDE_DIR})
 file(GLOB SOURCES src/main/cpp/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
+target_link_libraries(${PROJECT_NAME} "-lstdc++")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "npeblame")
-set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "64")
+set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
