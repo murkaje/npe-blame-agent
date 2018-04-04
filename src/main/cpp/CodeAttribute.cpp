@@ -160,6 +160,24 @@ std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
   return formatString("%d: name=%s type=%s", slot, name.c_str(), desc.c_str());
 }
 
+uint8_t CodeAttribute::getInstructionLength(size_t offset) {
+  uint8_t opCode = getOpcode(offset);
+  uint8_t len = Constants::InstructionLength[opCode];
+  
+  if(len != 0) return len;
+  
+  if(opCode == OpCodes::WIDE) {
+    uint8_t wideOp = ByteVectorUtil::readuint8(code, offset + 1);
+
+  } else if(opCode == OpCodes::TABLESWITCH) {
+
+  } else if(opCode == OpCodes::LOOKUPSWITCH) {
+
+  }
+
+  throw std::invalid_argument(formatString("Unknown opcode %d", opCode));
+}
+
 void InstructionPrintIterator::operator++(int) {
   if (offset > code.getSize()) {
     throw std::out_of_range(formatString("Current offset: %d, bytecode length: %d", offset, code.getSize()));

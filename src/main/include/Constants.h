@@ -9,6 +9,7 @@ public:
   static const char *OpcodeMnemonic[];
   static const uint8_t InstructionLength[];
   static const char *ArrayType[];
+  static const int OpCodeStackDelta[];
 };
 
 namespace CpInfo {

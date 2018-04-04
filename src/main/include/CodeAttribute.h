@@ -37,6 +37,8 @@ public:
     return code[offset];
   }
 
+  uint8_t getInstructionLength(size_t offset);
+
   const std::vector<uint8_t> &getCode() const { return code; }
 
   const std::vector<size_t> &getInstructions() const { return instructions; }

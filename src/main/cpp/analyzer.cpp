@@ -3,12 +3,34 @@
 #include "util.h"
 #include "Field.h"
 
+int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off) {
+  uint8_t opCode = code.getOpcode(off);
+  int delta = Constants::OpCodeStackDelta[opCode];
+
+  if(delta != -127 && delta != 127) return delta;
+
+  if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
+    auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
+    int invokeStackDelta = -invokedMethod.getParameterCount();
+    if (invokedMethod.getReturnType() != "void") { invokeStackDelta++; }
+    if (opCode == OpCodes::INVOKEVIRTUAL || opCode == OpCodes::INVOKEINTERFACE || opCode == OpCodes::INVOKESPECIAL) { invokeStackDelta--; }
+    return invokeStackDelta;
+  }
+
+  if(opCode == OpCodes::MULTIANEWARRAY) {
+    uint8_t dimensions = ByteVectorUtil::readuint8(code.getCode(), off + 3);
+    return 1 - dimensions;
+  }
+
+  throw std::invalid_argument(formatString("Unsupported opcode (%d)", opCode));
+}
+
 std::string traceDetailedCause(const Method &currentFrameMethod,
                                const ConstPool &constPool,
                                const CodeAttribute &code,
                                const LocalVariableTable &vars,
                                size_t location,
-                               size_t stackExcess) {
+                               int stackExcess) {
   const std::vector<size_t> &instructions = code.getInstructions();
   size_t ins = 0;
   for (size_t off : instructions) {
@@ -16,17 +38,17 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
     ins++;
   }
 
-  while (stackExcess != -1 && ins != -1) {
+  while (stackExcess >= 0 && ins != -1) {
     size_t off = instructions[--ins];
+
+    int stackDelta = getStackDelta(code, constPool, off);
+    stackExcess -= stackDelta;
+    if(stackExcess > 0 || stackExcess == 0 && stackDelta != 0) {
+      continue;
+    }
+
     uint8_t opCode = code.getOpcode(off);
-
     if (opCode >= OpCodes::ILOAD && opCode <= OpCodes::ALOAD_3) {
-      //TODO: Extract repetitive if check to getStackDelta(opcode) and if(stackExcess==0 && stackDelta <= 0)?
-      if (stackExcess != 0) {
-        stackExcess--;
-        continue;
-      }
-
       uint8_t slot;
       if (opCode <= OpCodes::ALOAD) {
         slot = ByteVectorUtil::readuint8(code.getCode(), off + 1);
@@ -48,32 +70,12 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
           return formatString("local variable in slot %d", slot);
         }
       }
-    } else if (opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE_3) {
-      stackExcess++;
-    } else if (opCode >= OpCodes::LDC && opCode <= OpCodes::LDC2_W ) {
-      if (stackExcess != 0) {
-        stackExcess--;
-      }
     } else if(opCode == OpCodes::ACONST_NULL) {
-      if (stackExcess != 0) {
-        stackExcess--;
-        continue;
-      }
-
       return "constant";
     } else if (opCode == OpCodes::GETFIELD) {
-      if (stackExcess != 0) {
-        continue;
-      }
-
       Field field = Field::readFromFieldInsn(code, constPool, off);
       return "instance field " + field.getClassName() + "." + field.getFieldName();
     } else if (opCode == OpCodes::GETSTATIC) {
-      if (stackExcess != 0) {
-        stackExcess--;
-        continue;
-      }
-
       Field field = Field::readFromFieldInsn(code, constPool, off);
       return "static field " + field.getClassName() + "." + field.getFieldName();
     }
@@ -81,18 +83,11 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
       //Parse BootStrapmethod and get MethodType passed to LambdaMetaFactory to determine which method ref was taken
       //Diff between method ref and lambda?
     else if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
-      //Calc stack diff from method invoke
       auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
-      int invokeStackDelta = -invokedMethod.getParameterCount();
-      if (invokedMethod.getReturnType() != "void") { invokeStackDelta++; }
-      if (opCode == OpCodes::INVOKEVIRTUAL || opCode == OpCodes::INVOKEINTERFACE) { invokeStackDelta--; }
 
-      // The stack depth is fitting and the method invocation before it added to top of stack
-      if (stackExcess == 0 && invokedMethod.getReturnType() != "void") {
+      if (invokedMethod.getReturnType() != "void") {
         return "object returned from " + invokedMethod.getClassName() + "#" + invokedMethod.getMethodName();
       }
-
-      stackExcess += invokeStackDelta;
     }
   }
 
@@ -129,7 +124,7 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
     errorSource = putOrGet + " field " + field.getClassName() + "." + field.getFieldName() + " of null ";
   } else if (op >= OpCodes::IASTORE && op <= OpCodes::SASTORE) {
     errorSource = "Storing array value to null ";
-    stackExcess = 1;
+    stackExcess = 2;
   } else if (op >= OpCodes::IALOAD && op <= OpCodes::SALOAD) {
     errorSource = "Loading array value from null ";
     stackExcess = 0;

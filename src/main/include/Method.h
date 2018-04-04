@@ -37,8 +37,9 @@ public:
     return parameterTypes;
   }
 
-  const size_t getParameterCount() const {
-    return parameterTypes.size();
+  const uint8_t getParameterCount() const {
+    // JVM §4.3.3: Max length 255 parameters
+    return static_cast<const uint8_t>(parameterTypes.size());
   }
 
   bool isStatic() const {
