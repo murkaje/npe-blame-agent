@@ -90,76 +90,78 @@ void JNICALL callback_Exception(jvmtiEnv *jvmti,
                                 jmethodID catch_method,
                                 jlocation catch_location) {
 
-  jvmtiError err;
-  jboolean nativeMethod;
+  try {
+    jvmtiError err;
+    jboolean nativeMethod;
 
-  err = jvmti->IsMethodNative(method, &nativeMethod);
-  check_jvmti_error(jvmti, err, "Is method native");
+    err = jvmti->IsMethodNative(method, &nativeMethod);
+    check_jvmti_error(jvmti, err, "Is method native");
 
-  if (nativeMethod || location == 0) {
-    return;
-  }
+    if (nativeMethod || location == 0) {
+      return;
+    }
 
-  jclass exceptionClass = jni->GetObjectClass(exception);
-  string exceptionClassName = getClassName(jni, exceptionClass);
-  string exceptionMessage = getExceptionMessage(jni, exception);
+    jclass exceptionClass = jni->GetObjectClass(exception);
+    string exceptionClassName = getClassName(jni, exceptionClass);
+    string exceptionMessage = getExceptionMessage(jni, exception);
 
-  if (exceptionClassName != "java.lang.NullPointerException") { return; }
+    if (exceptionClassName != "java.lang.NullPointerException") { return; }
 
-  // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
+    // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
 //  if (!exceptionMessage.empty()) { return; }
 
-  auto[methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
+    auto[methodName, methodSignature] = getMethodNameAndSignature(jvmti, method);
 
-  jclass methodClass;
-  err = jvmti->GetMethodDeclaringClass(method, &methodClass);
-  check_jvmti_error(jvmti, err, "Get method declaring class");
-
-  string methodClassName = getClassName(jni, methodClass);
-
-  //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and analyze method in previous frame
-  if (methodClassName == "java.util.Objects" && methodName == "requireNonNull") {
-    jvmti->GetFrameLocation(thread, 1, &method, &location);
-
-    std::tie(methodName, methodSignature) = getMethodNameAndSignature(jvmti, method);
+    jclass methodClass;
     err = jvmti->GetMethodDeclaringClass(method, &methodClass);
     check_jvmti_error(jvmti, err, "Get method declaring class");
-    methodClassName = getClassName(jni, methodClass);
-  }
 
-  vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
+    string methodClassName = getClassName(jni, methodClass);
 
-  auto[cpCount, constPoolBytes] = getConstPool(jvmti, methodClass);
+    //TODO: JDK9 compiles implicit Objects.requireNonNUll for indy/inner constructor - make this method intrinsic and analyze method in previous frame
+    if (methodClassName == "java.util.Objects" && methodName == "requireNonNull") {
+      jvmti->GetFrameLocation(thread, 1, &method, &location);
 
-  LocalVariableTable localVariables(jvmti, method);
-
-  ConstPool constPool(constPoolBytes);
-  CodeAttribute codeAttribute(methodBytecode, localVariables);
-  InstructionPrintIterator iter(codeAttribute, constPool);
-
-//  if (!shouldPrint(codeAttribute, methodName, methodSignature, location)) { return; }
-
-  jint modifiers;
-  err = jvmti->GetMethodModifiers(method, &modifiers);
-  check_jvmti_error(jvmti, err, "Get method modifiers");
-
-  //struct/class StackFrame(Method, location)?
-  Method currentFrameMethod = Method{methodClassName, methodName, methodSignature, (modifiers & Modifier::STATIC) !=0};
-  std::string exceptionDetail = describeNPEInstruction(currentFrameMethod, constPool, codeAttribute, localVariables, location);
-
-  jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
-  jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
-  jni->SetObjectField(exception, detailMessageField, detailMessage);
-  jni->DeleteLocalRef(detailMessage);
-
-  logger->debug("{}: {}", exceptionClassName, exceptionMessage);
-  logger->debug("\tat {}.{}[{}]{}", methodClassName, methodName, location, methodSignature);
-
-  size_t beginOffset = location > 200 ? location - 50 : 0;  //Limit printing too much
-  logger->debug("Method instructions:");
-  for (; iter.getOffset() < codeAttribute.getSize() /*&& iter.getOffset() <= location*/; iter++) {
-    if (iter.getOffset() >= beginOffset) {
-      logger->debug("{:<6}: {}", iter.getOffset(), (*iter));
+      std::tie(methodName, methodSignature) = getMethodNameAndSignature(jvmti, method);
+      err = jvmti->GetMethodDeclaringClass(method, &methodClass);
+      check_jvmti_error(jvmti, err, "Get method declaring class");
+      methodClassName = getClassName(jni, methodClass);
     }
+
+    vector<uint8_t> methodBytecode = getMethodBytecode(jvmti, method);
+
+    auto[cpCount, constPoolBytes] = getConstPool(jvmti, methodClass);
+
+    LocalVariableTable localVariables(jvmti, method);
+
+    ConstPool constPool(constPoolBytes);
+    CodeAttribute codeAttribute(methodBytecode, localVariables);
+
+    logger->debug("{}: {}", exceptionClassName, exceptionMessage);
+    logger->debug("\tat {}.{}[{}]{}", methodClassName, methodName, location, methodSignature);
+
+    InstructionPrintIterator iter(codeAttribute, constPool);
+    size_t beginOffset = location > 200 ? location - 50 : 0;  //Limit printing too much
+    logger->debug("Method instructions:");
+    for (; iter.getOffset() < codeAttribute.getSize() /*&& iter.getOffset() <= location*/; iter++) {
+//      if (iter.getOffset() >= beginOffset) {
+        logger->debug("{:<6}: {}", iter.getOffset(), (*iter));
+//      }
+    }
+
+    jint modifiers;
+    err = jvmti->GetMethodModifiers(method, &modifiers);
+    check_jvmti_error(jvmti, err, "Get method modifiers");
+
+    //struct/class StackFrame(Method, location)?
+    Method currentFrameMethod = Method{methodClassName, methodName, methodSignature, (modifiers & Modifier::STATIC) != 0};
+    std::string exceptionDetail = describeNPEInstruction(currentFrameMethod, constPool, codeAttribute, localVariables, location);
+
+    jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
+    jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
+    jni->SetObjectField(exception, detailMessageField, detailMessage);
+    jni->DeleteLocalRef(detailMessage);
+  } catch (const std::exception &e) {
+    logger->error("Failed to run exception callback: {}", e.what());
   }
 }

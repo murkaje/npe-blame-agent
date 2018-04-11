@@ -13,6 +13,7 @@ class Method {
   std::string returnType;
   std::string methodName;
   std::vector<std::string> parameterTypes;
+  uint8_t parameterLength;
 
 public:
   Method(std::string className, std::string methodName, const std::string &signature, bool isStatic);
@@ -37,9 +38,17 @@ public:
     return parameterTypes;
   }
 
-  const uint8_t getParameterCount() const {
+  uint8_t getParameterCount() const {
     // JVM §4.3.3: Max length 255 parameters
-    return static_cast<const uint8_t>(parameterTypes.size());
+    return static_cast<uint8_t>(parameterTypes.size());
+  }
+
+  /**
+   * Return the length as a sum of contributions from each method parameter
+   * A parameter of type long or double contributes two units to the length and a parameter of any other type contributes one unit
+   */
+  uint8_t getParameterLength() const {
+    return parameterLength;
   }
 
   bool isStatic() const {

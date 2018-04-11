@@ -3,7 +3,7 @@
 #include "util.h"
 
 Method::Method(std::string className, std::string methodName, const std::string &signature, bool isStatic) :
-    methodStatic(isStatic), className(std::move(className)), methodName(std::move(methodName)) {
+    methodStatic(isStatic), className(std::move(className)), methodName(std::move(methodName)), parameterLength(0) {
   size_t pos = 0;
 
   if (signature.empty() || signature[pos] != '(') {
@@ -21,10 +21,14 @@ Method::Method(std::string className, std::string methodName, const std::string 
 
     if (pos != signature.size()) {
       parameterTypes.push_back(type);
+      if (type == "long" || type == "double") {
+        parameterLength += 2;
+      } else {
+        parameterLength++;
+      }
     } else {
       returnType = type;
     }
-
   }
 }
 

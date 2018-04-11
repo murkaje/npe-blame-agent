@@ -263,113 +263,113 @@ const int Constants::OpCodeStackDelta[] = {
     1, /* 006 ICONST_3 */
     1, /* 007 ICONST_4 */
     1, /* 008 ICONST_5 */
-    1, /* 009 LCONST_0 */
-    1, /* 010 LCONST_1 */
+    2, /* 009 LCONST_0 */
+    2, /* 010 LCONST_1 */
     1, /* 011 FCONST_0 */
     1, /* 012 FCONST_1 */
     1, /* 013 FCONST_2 */
-    1, /* 014 DCONST_0 */
-    1, /* 015 DCONST_1 */
+    2, /* 014 DCONST_0 */
+    2, /* 015 DCONST_1 */
     1, /* 016 BIPUSH */
     1, /* 017 SIPUSH */
     1, /* 018 LDC */
     1, /* 019 LDC_W */
-    1, /* 020 LDC2_W */
+    2, /* 020 LDC2_W */
     1, /* 021 ILOAD */
-    1, /* 022 LLOAD */
+    2, /* 022 LLOAD */
     1, /* 023 FLOAD */
-    1, /* 024 DLOAD */
+    2, /* 024 DLOAD */
     1, /* 025 ALOAD */
     1, /* 026 ILOAD_0 */
     1, /* 027 ILOAD_1 */
     1, /* 028 ILOAD_2 */
     1, /* 029 ILOAD_3 */
-    1, /* 030 LLOAD_0 */
-    1, /* 031 LLOAD_1 */
-    1, /* 032 LLOAD_2 */
-    1, /* 033 LLOAD_3 */
+    2, /* 030 LLOAD_0 */
+    2, /* 031 LLOAD_1 */
+    2, /* 032 LLOAD_2 */
+    2, /* 033 LLOAD_3 */
     1, /* 034 FLOAD_0 */
     1, /* 035 FLOAD_1 */
     1, /* 036 FLOAD_2 */
     1, /* 037 FLOAD_3 */
-    1, /* 038 DLOAD_0 */
-    1, /* 039 DLOAD_1 */
-    1, /* 040 DLOAD_2 */
-    1, /* 041 DLOAD_3 */
+    2, /* 038 DLOAD_0 */
+    2, /* 039 DLOAD_1 */
+    2, /* 040 DLOAD_2 */
+    2, /* 041 DLOAD_3 */
     1, /* 042 ALOAD_0 */
     1, /* 043 ALOAD_1 */
     1, /* 044 ALOAD_2 */
     1, /* 045 ALOAD_3 */
     -1, /* 046 IALOAD */
-    -1, /* 047 LALOAD */
+    0, /* 047 LALOAD */
     -1, /* 048 FALOAD */
-    -1, /* 049 DALOAD */
+    0, /* 049 DALOAD */
     -1, /* 050 AALOAD */
     -1, /* 051 BALOAD */
     -1, /* 052 CALOAD */
     -1, /* 053 SALOAD */
     -1, /* 054 ISTORE */
-    -1, /* 055 LSTORE */
+    -2, /* 055 LSTORE */
     -1, /* 056 FSTORE */
-    -1, /* 057 DSTORE */
+    -2, /* 057 DSTORE */
     -1, /* 058 ASTORE */
     -1, /* 059 ISTORE_0 */
     -1, /* 060 ISTORE_1 */
     -1, /* 061 ISTORE_2 */
     -1, /* 062 ISTORE_3 */
-    -1, /* 063 LSTORE_0 */
-    -1, /* 064 LSTORE_1 */
-    -1, /* 065 LSTORE_2 */
-    -1, /* 066 LSTORE_3 */
+    -2, /* 063 LSTORE_0 */
+    -2, /* 064 LSTORE_1 */
+    -2, /* 065 LSTORE_2 */
+    -2, /* 066 LSTORE_3 */
     -1, /* 067 FSTORE_0 */
     -1, /* 068 FSTORE_1 */
     -1, /* 069 FSTORE_2 */
     -1, /* 070 FSTORE_3 */
-    -1, /* 071 DSTORE_0 */
-    -1, /* 072 DSTORE_1 */
-    -1, /* 073 DSTORE_2 */
-    -1, /* 074 DSTORE_3 */
+    -2, /* 071 DSTORE_0 */
+    -2, /* 072 DSTORE_1 */
+    -2, /* 073 DSTORE_2 */
+    -2, /* 074 DSTORE_3 */
     -1, /* 075 ASTORE_0 */
     -1, /* 076 ASTORE_1 */
     -1, /* 077 ASTORE_2 */
     -1, /* 078 ASTORE_3 */
     -3, /* 079 IASTORE */
-    -3, /* 080 LASTORE */
+    -4, /* 080 LASTORE */
     -3, /* 081 FASTORE */
-    -3, /* 082 DASTORE */
+    -4, /* 082 DASTORE */
     -3, /* 083 AASTORE */
     -3, /* 084 BASTORE */
     -3, /* 085 CASTORE */
     -3, /* 086 SASTORE */
     -1, /* 087 POP */
-    -127, /* 088 POP2 */
+    -2, /* 088 POP2 */
     1, /* 089 DUP */
-    -127, /* 090 DUP_X1 */
-    -127, /* 091 DUP_X2 */
-    -127, /* 092 DUP2 */
-    -127, /* 093 DUP2_X1 */
-    -127, /* 094 DUP2_X2 */
-    -127, /* 095 SWAP */
+    127, /* 090 DUP_X1 */
+    127, /* 091 DUP_X2 */
+    127, /* 092 DUP2 */
+    127, /* 093 DUP2_X1 */
+    127, /* 094 DUP2_X2 */
+    127, /* 095 SWAP */
     -1, /* 096 IADD */
-    -1, /* 097 LADD */
+    -2, /* 097 LADD */
     -1, /* 098 FADD */
-    -1, /* 099 DADD */
+    -2, /* 099 DADD */
     -1, /* 100 ISUB */
-    -1, /* 101 LSUB */
+    -2, /* 101 LSUB */
     -1, /* 102 FSUB */
-    -1, /* 103 DSUB */
+    -2, /* 103 DSUB */
     -1, /* 104 IMUL */
-    -1, /* 105 LMUL */
+    -2, /* 105 LMUL */
     -1, /* 106 FMUL */
-    -1, /* 107 DMUL */
+    -2, /* 107 DMUL */
     -1, /* 108 IDIV */
-    -1, /* 109 LDIV */
+    -2, /* 109 LDIV */
     -1, /* 110 FDIV */
-    -1, /* 111 DDIV */
+    -2, /* 111 DDIV */
     -1, /* 112 IREM */
-    -1, /* 113 LREM */
+    -2, /* 113 LREM */
     -1, /* 114 FREM */
-    -1, /* 115 DREM */
+    -2, /* 115 DREM */
     0, /* 116 INEG */
     0, /* 117 LNEG */
     0, /* 118 FNEG */
@@ -381,32 +381,32 @@ const int Constants::OpCodeStackDelta[] = {
     -1, /* 124 IUSHR */
     -1, /* 125 LUSHR */
     -1, /* 126 IAND */
-    -1, /* 127 LAND */
+    -2, /* 127 LAND */
     -1, /* 128 IOR */
-    -1, /* 129 LOR */
+    -2, /* 129 LOR */
     -1, /* 130 IXOR */
-    -1, /* 131 LXOR */
+    -2, /* 131 LXOR */
     0, /* 132 IINC */
-    0, /* 133 I2L */
+    1, /* 133 I2L */
     0, /* 134 I2F */
-    0, /* 135 I2D */
-    0, /* 136 L2I */
-    0, /* 137 L2F */
+    1, /* 135 I2D */
+    -1, /* 136 L2I */
+    -1, /* 137 L2F */
     0, /* 138 L2D */
     0, /* 139 F2I */
-    0, /* 140 F2L */
-    0, /* 141 F2D */
-    0, /* 142 D2I */
+    1, /* 140 F2L */
+    1, /* 141 F2D */
+    -1, /* 142 D2I */
     0, /* 143 D2L */
-    0, /* 144 D2F */
+    -1, /* 144 D2F */
     0, /* 145 I2B */
     0, /* 146 I2C */
     0, /* 147 I2S */
-    -1,/* 148 LCMP */
+    -3,/* 148 LCMP */
     -1, /* 149 FCMPL */
     -1, /* 150 FCMPG */
-    -1, /* 151 DCMPL */
-    -1, /* 152 DCMPG */
+    -3, /* 151 DCMPL */
+    -3, /* 152 DCMPG */
     -1, /* 153 IFEQ */
     -1, /* 154 IFNE */
     -1, /* 155 IFLT */
@@ -432,10 +432,10 @@ const int Constants::OpCodeStackDelta[] = {
     -127, /* 175 DRETURN */
     -127, /* 176 ARETURN */
     -127, /* 177 RETURN */
-    1, /* 178 GETSTATIC */
-    -1, /* 179 PUTSTATIC */
-    0, /* 180 GETFIELD */
-    -2, /* 181 PUTFIELD */
+    127, /* 178 GETSTATIC */
+    127, /* 179 PUTSTATIC */
+    127, /* 180 GETFIELD */
+    127, /* 181 PUTFIELD */
     127, /* 182 INVOKEVIRTUAL */
     127, /* 183 INVOKESPECIAL */
     127, /* 184 INVOKESTATIC */

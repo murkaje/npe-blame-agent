@@ -21,7 +21,7 @@ Field Field::readFromMemberRef(const ConstPool &constPool, size_t refId) {
 
   std::string className = toJavaClassName(constPool.entryToString(memberRef.getClassIndex(), false));
   std::string fieldName = constPool.entryToString(nameAndTypeRef.getNameIndex(), false);
-  std::string typeName = toJavaClassName(constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false));
+  std::string typeName = toJavaTypeName(constPool.entryToString(nameAndTypeRef.getDescriptorIndex(), false));
 
   return Field(className, fieldName, typeName);
 }

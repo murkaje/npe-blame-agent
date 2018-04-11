@@ -3,26 +3,105 @@
 #include "util.h"
 #include "Field.h"
 
-int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off) {
+int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off, int stackExcess) {
   uint8_t opCode = code.getOpcode(off);
   int delta = Constants::OpCodeStackDelta[opCode];
 
-  if(delta != -127 && delta != 127) return delta;
+  if (delta != -127 && delta != 127) { return delta; }
 
   if (opCode >= OpCodes::INVOKEVIRTUAL && opCode <= OpCodes::INVOKEINTERFACE) {
     auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
-    int invokeStackDelta = -invokedMethod.getParameterCount();
+    int invokeStackDelta = -invokedMethod.getParameterLength();
     if (invokedMethod.getReturnType() != "void") { invokeStackDelta++; }
     if (opCode == OpCodes::INVOKEVIRTUAL || opCode == OpCodes::INVOKEINTERFACE || opCode == OpCodes::INVOKESPECIAL) { invokeStackDelta--; }
     return invokeStackDelta;
   }
 
-  if(opCode == OpCodes::MULTIANEWARRAY) {
+  if (opCode == OpCodes::MULTIANEWARRAY) {
     uint8_t dimensions = ByteVectorUtil::readuint8(code.getCode(), off + 3);
     return 1 - dimensions;
   }
 
-  throw std::invalid_argument(formatString("Unsupported opcode (%d)", opCode));
+  if (opCode >= OpCodes::GETSTATIC && opCode <= OpCodes::PUTFIELD) {
+    std::string fieldType = Field::readFromFieldInsn(code, constPool, off).getTypeName();
+    int fieldTypeSize = (fieldType == "long" || fieldType == "double") ? 2 : 1;
+    switch (opCode) {
+      case OpCodes::GETSTATIC:
+        return fieldTypeSize;
+      case OpCodes::PUTSTATIC:
+        return -fieldTypeSize;
+      case OpCodes::GETFIELD:
+        return -1 + fieldTypeSize;
+      case OpCodes::PUTFIELD:
+        return -1 - fieldTypeSize;
+    }
+  }
+
+  if (opCode == OpCodes::SWAP) {
+    if (stackExcess == 1) {
+      return 1;
+    } else if (stackExcess == 0) {
+      return -1;
+    } else {
+      return 0;
+    }
+  }
+
+  // For distant elements in stack, top moved 1 unit up
+  // The element copied by dup can be found 2 elements closer
+  if (opCode == OpCodes::DUP_X1) {
+    if (stackExcess == 2) {
+      return 2;
+    } else if (stackExcess < 2) {
+      return 0;
+    } else {
+      return 1;
+    }
+  }
+
+  // For distant elements in stack, top moved 1 unit up
+  // The element copied by dup can be found 3 elements closer
+  if (opCode == OpCodes::DUP_X2) {
+    if (stackExcess == 3) {
+      return 3;
+    } else if (stackExcess < 3) {
+      return 0;
+    } else {
+      return 1;
+    }
+  }
+
+  // For distant elements in stack, top moved 2 units up
+  // The elements copied by dup can be found 2 elements closer
+  if (opCode == OpCodes::DUP2) {
+    return (stackExcess >= 2) ? 2 : 0;
+  }
+
+  // For distant elements in stack, top moved 2 units up
+  // The elements copied by dup can be found 3 elements closer
+  if (opCode == OpCodes::DUP2_X1) {
+    if (stackExcess == 3 || stackExcess == 4) {
+      return 3;
+    } else if (stackExcess < 3) {
+      return 0;
+    } else {
+      return 2;
+    }
+  }
+
+  // For distant elements in stack, top moved 2 units up
+  // The elements copied by dup can be found 4 elements closer
+  if (opCode == OpCodes::DUP2_X2) {
+    if (stackExcess == 4 || stackExcess == 5) {
+      return 4;
+    } else if (stackExcess < 4) {
+      return 0;
+    } else {
+      return 2;
+    }
+  }
+
+  throw std::invalid_argument(formatString("Unsupported opcode for calculating stack delta: %s", Constants::OpcodeMnemonic[opCode]));
 }
 
 std::string traceDetailedCause(const Method &currentFrameMethod,
@@ -38,12 +117,13 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
     ins++;
   }
 
-  while (stackExcess >= 0 && ins != -1) {
+  while (stackExcess >= 0 && ins != 0) {
     size_t off = instructions[--ins];
 
-    int stackDelta = getStackDelta(code, constPool, off);
+    int stackDelta = getStackDelta(code, constPool, off, stackExcess);
+    getLogger("Analyzer")->trace("Op: {}, delta: {}, excess: {}", Constants::OpcodeMnemonic[code.getOpcode(off)], stackDelta, stackExcess);
     stackExcess -= stackDelta;
-    if(stackExcess > 0 || stackExcess == 0 && stackDelta != 0) {
+    if (stackExcess > 0 || stackExcess == 0 && stackDelta != 0) {
       continue;
     }
 
@@ -70,7 +150,7 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
           return formatString("local variable in slot %d", slot);
         }
       }
-    } else if(opCode == OpCodes::ACONST_NULL) {
+    } else if (opCode == OpCodes::ACONST_NULL) {
       return "constant";
     } else if (opCode == OpCodes::GETFIELD) {
       Field field = Field::readFromFieldInsn(code, constPool, off);
@@ -96,7 +176,7 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
 
 std::string describeNPEInstruction(const Method &currentFrameMethod, const ConstPool &cp, const CodeAttribute &code, const LocalVariableTable &vars, size_t location) {
   std::string errorSource;
-  size_t stackExcess;
+  int stackExcess;
 
   uint8_t op = code.getOpcode(location);
   if (op >= OpCodes::INVOKEVIRTUAL && op <= OpCodes::INVOKEDYNAMIC) {
@@ -107,7 +187,7 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
       stackExcess = 0;
     } else {
       errorSource = "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null ";
-      stackExcess = method.getParameterCount();
+      stackExcess = method.getParameterLength();
     }
   } else if (op >= OpCodes::GETFIELD && op <= OpCodes::PUTFIELD) {
     Field field = Field::readFromFieldInsn(code, cp, location);
