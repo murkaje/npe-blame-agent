@@ -1,5 +1,7 @@
 #include "analyzer.h"
 
+#include <string_view>
+
 #include "util.h"
 #include "Field.h"
 
@@ -136,8 +138,8 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
         slot = opcodeSlot(opCode);
       }
 
-      size_t methodParamsCount = currentFrameMethod.getParameterCount();
-      bool isMethodParam = slot < methodParamsCount + (currentFrameMethod.isStatic() ? 0 : 1);
+      size_t methodParamsLength = currentFrameMethod.getParameterLength();
+      bool isMethodParam = slot < methodParamsLength + (currentFrameMethod.isStatic() ? 0 : 1);
 
       auto optVarInfo = vars.getEntry(slot);
       if (optVarInfo.has_value()) {
@@ -145,7 +147,18 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
         return (isMethodParam ? "method parameter " : "local variable ") + name + ":" + toJavaTypeName(signature);
       } else {
         if (isMethodParam) {
-          return formatString("method parameter at index %d", (slot + (currentFrameMethod.isStatic() ? 1 : 0)));
+          int index = currentFrameMethod.isStatic() ? 1 : 0;
+          int paramSlot = 0;
+          for(std::string_view param : currentFrameMethod.getParameterTypes()) {
+            if(param == "long" || param == "double") {
+              paramSlot += 2;
+            } else {
+              paramSlot++;
+            }
+            index++;
+            if(paramSlot == slot) break;
+          }
+          return formatString("method parameter at index %d", index);
         } else {
           return formatString("local variable in slot %d", slot);
         }
