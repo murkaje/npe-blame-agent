@@ -2,6 +2,8 @@
 
 #include "util.h"
 
+using fmt::literals::operator""_format;
+
 Method::Method(std::string className, std::string methodName, const std::string &signature, bool isStatic) :
     methodStatic(isStatic), className(std::move(className)), methodName(std::move(methodName)), parameterLength(0) {
   size_t pos = 0;
@@ -35,7 +37,7 @@ Method::Method(std::string className, std::string methodName, const std::string 
 Method Method::readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci) {
   uint8_t opCode = code.getOpcode(bci);
   if (opCode < OpCodes::INVOKEVIRTUAL || opCode > OpCodes::INVOKEINTERFACE) {
-    throw std::invalid_argument(formatString("Opcode %d is not a known invoke", opCode));
+    throw std::invalid_argument("Opcode {} is not a known invoke"_format(opCode));
   }
 
   uint16_t refIndex = ByteVectorUtil::readuint16(code.getCode(), bci + 1);

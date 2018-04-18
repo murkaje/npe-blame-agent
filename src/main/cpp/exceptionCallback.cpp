@@ -11,6 +11,7 @@
 
 using std::string;
 using std::vector;
+using fmt::literals::operator""_format;
 
 static auto logger = getLogger("ExceptionCallback");
 
@@ -50,7 +51,7 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
      */
     for (; iter.getOffset() + 11 < codeAttribute.getSize(); iter++) {
 
-      logger->debug(formatString("Current opcode: %s", Constants::OpcodeMnemonic[std::get<1>(*iter)]));
+      logger->debug("Current opcode: {}", Constants::OpcodeMnemonic[std::get<1>(*iter)]);
 
       // Record current stack top via visitor?
 
@@ -75,7 +76,7 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
       return true;
     }
 
-    logger->debug(formatString("Skipping explicit throw site %s%s", methodName.c_str(), methodSignature.c_str()));
+    logger->debug("Skipping explicit throw site {}{}", methodName.c_str(), methodSignature.c_str());
     return false;
   }
   return true;

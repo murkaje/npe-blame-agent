@@ -6,6 +6,8 @@
 #include "Constants.h"
 #include "util.h"
 
+using fmt::literals::operator""_format;
+
 static auto logger = getLogger("Bytecode");
 
 // ****************************************
@@ -143,7 +145,7 @@ std::unique_ptr<ConstInfo> ConstInfo::read(const std::vector<uint8_t> &constPool
     case CpInfo::InvokeDynamic:
       return InvokeDynamicInfo::read(constPoolBytes, offset, index);
     default:
-      throw std::runtime_error(formatString("Unexpected tag %d at offset %d", tag, offset));
+      throw std::runtime_error("Unexpected tag {} at offset {}"_format(tag, offset));
   }
 }
 
@@ -304,7 +306,7 @@ void ConstPool::print() const {
 
 std::string ConstPool::entryToString(size_t index, bool identifier) const {
   if (index >= entries.size()) {
-    return formatString("#%d", index);
+    return "#{}"_format(index);
   }
 
   std::string entryString;

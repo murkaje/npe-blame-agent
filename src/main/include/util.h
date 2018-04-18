@@ -29,8 +29,6 @@ std::tuple<jint, std::vector<uint8_t>> getConstPool(jvmtiEnv *jvmti, jclass klas
 
 std::vector<uint8_t> getMethodBytecode(jvmtiEnv *jvmti, jmethodID method);
 
-std::string formatString(const char *format, ...);
-
 std::string toJavaClassName(const std::string &jvmClassName);
 
 std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos = 0, size_t *outEndPos = nullptr);

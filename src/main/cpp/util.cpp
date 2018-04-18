@@ -2,6 +2,9 @@
 
 #include <sstream>
 #include <spdlog.h>
+#include <fmt/fmt.h>
+
+using fmt::literals::operator""_format;
 
 std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
   auto log = spdlog::get(std::string(loggerName));
@@ -127,20 +130,6 @@ std::vector<uint8_t> getMethodBytecode(jvmtiEnv *jvmti, jmethodID method) {
   check_jvmti_error(jvmti, err, "Deallocate bytecodes");
 
   return methodBytecode;
-}
-
-std::string formatString(const char *format, ...) {
-  std::va_list args, temp;
-  va_start(args, format);
-  va_copy(temp, args);
-  size_t length = (size_t) (vsnprintf(nullptr, 0, format, temp));
-  va_end(temp);
-
-  std::string formattedString(length, '\0');
-  if (std::vsnprintf(&formattedString[0], formattedString.size() + 1, format, args) < 0) {
-    throw std::runtime_error("Failed to encode string: " + std::string(format));
-  }
-  return formattedString;
 }
 
 std::string toJavaClassName(const std::string &jvmClassName) {
@@ -285,5 +274,5 @@ uint8_t opcodeSlot(uint8_t opCode) {
     if (val != 9) { return val; }
   }
 
-  throw std::invalid_argument(formatString("Opcode is not a valid 1 byte load/store: %s", Constants::OpcodeMnemonic[opCode]));
+  throw std::invalid_argument("Opcode is not a valid 1 byte load/store: {}"_format(Constants::OpcodeMnemonic[opCode]));
 }

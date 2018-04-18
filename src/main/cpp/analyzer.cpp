@@ -5,6 +5,8 @@
 #include "util.h"
 #include "Field.h"
 
+using fmt::literals::operator""_format;
+
 int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off, int stackExcess) {
   uint8_t opCode = code.getOpcode(off);
   int delta = Constants::OpCodeStackDelta[opCode];
@@ -103,7 +105,7 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
     }
   }
 
-  throw std::invalid_argument(formatString("Unsupported opcode for calculating stack delta: %s", Constants::OpcodeMnemonic[opCode]));
+  throw std::invalid_argument("Unsupported opcode for calculating stack delta: {}"_format(Constants::OpcodeMnemonic[opCode]));
 }
 
 std::string traceDetailedCause(const Method &currentFrameMethod,
@@ -158,9 +160,9 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
             index++;
             if(paramSlot == slot) break;
           }
-          return formatString("method parameter at index %d", index);
+          return "method parameter at index {}"_format(index);
         } else {
-          return formatString("local variable in slot %d", slot);
+          return "local variable in slot {}"_format(slot);
         }
       }
     } else if (opCode == OpCodes::ACONST_NULL) {

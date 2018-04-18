@@ -1,8 +1,11 @@
 #include "CodeAttribute.h"
 
 #include <spdlog.h>
+#include <fmt/fmt.h>
 
 #include "util.h"
+
+using fmt::literals::operator""_format;
 
 static auto logger = getLogger("Bytecode");
 
@@ -30,15 +33,15 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
 
   switch (opcode) {
     case OpCodes::BIPUSH:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], code[offset + 1]);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], code[offset + 1]);
     case OpCodes::SIPUSH:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1));
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1));
     case OpCodes::LDC:
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(code[offset + 1], false);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], constPool.entryToString(code[offset + 1], false));
     case OpCodes::LDC_W:
     case OpCodes::LDC2_W: {
       const uint16_t constantIndex = ByteVectorUtil::readuint16(code, offset + 1);
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(constantIndex, false);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], constPool.entryToString(constantIndex, false));
     }
     case OpCodes::ILOAD:
     case OpCodes::LLOAD:
@@ -50,7 +53,7 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
     case OpCodes::FSTORE:
     case OpCodes::DSTORE:
     case OpCodes::ASTORE:
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + printLocalVariable(code[offset + 1]);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], printLocalVariable(code[offset + 1]));
     case OpCodes::ILOAD_0:
     case OpCodes::ILOAD_1:
     case OpCodes::ILOAD_2:
@@ -92,7 +95,7 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
     case OpCodes::ASTORE_2:
     case OpCodes::ASTORE_3: {
       uint8_t slot = opcodeSlot(opcode);
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + printLocalVariable(slot);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], printLocalVariable(slot));
     }
     case OpCodes::IFEQ:
     case OpCodes::IFGE:
@@ -110,14 +113,14 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
     case OpCodes::IF_ICMPLE:
     case OpCodes::IF_ICMPLT:
     case OpCodes::IF_ICMPNE:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
     case OpCodes::IINC:
-      return formatString("%-15s %d, %d", Constants::OpcodeMnemonic[opcode], code[offset + 1], ByteVectorUtil::readint8(code, offset + 2));
+      return "{:<15} {}, {}"_format(Constants::OpcodeMnemonic[opcode], code[offset + 1], ByteVectorUtil::readint8(code, offset + 2));
     case OpCodes::GOTO:
     case OpCodes::JSR:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
     case OpCodes::RET:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], code[offset + 1]);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], code[offset + 1]);
     case OpCodes::TABLESWITCH:
       return "";  //TODO
     case OpCodes::LOOKUPSWITCH:
@@ -135,29 +138,29 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
     case OpCodes::CHECKCAST:
     case OpCodes::ANEWARRAY: {
       const uint16_t refIndex = ByteVectorUtil::readuint16(code, offset + 1);
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(refIndex, false);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], constPool.entryToString(refIndex, false));
     }
     case OpCodes::MULTIANEWARRAY: {
       const uint16_t refIndex = ByteVectorUtil::readuint16(code, offset + 1);
-      return formatString("%-15s ", Constants::OpcodeMnemonic[opcode]) + constPool.entryToString(refIndex, false) + formatString(" %d", code[offset + 3]);
+      return "{:<15} {} {}"_format(Constants::OpcodeMnemonic[opcode], constPool.entryToString(refIndex, false), code[offset + 3]);
     }
     case OpCodes::NEWARRAY: {
       uint8_t type = code[offset + 1];
-      return formatString("%-15s %s", Constants::OpcodeMnemonic[opcode], Constants::ArrayType[type]);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], Constants::ArrayType[type]);
     }
     case OpCodes::GOTO_W:
     case OpCodes::JSR_W:
-      return formatString("%-15s %d", Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
+      return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
     case OpCodes::WIDE:
       //TODO
     default:
-      return formatString("%-15s", Constants::OpcodeMnemonic[opcode]);
+      return "{:<15}"_format(Constants::OpcodeMnemonic[opcode]);
   }
 }
 
 std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
   auto[name, desc] = localVariables.getEntry(slot).value_or(std::make_tuple("?", "?"));
-  return formatString("%d: name=%s type=%s", slot, name.c_str(), desc.c_str());
+  return "{}: name={} type={}"_format(slot, name, desc);
 }
 
 uint8_t CodeAttribute::getInstructionLength(size_t offset) {
@@ -175,12 +178,12 @@ uint8_t CodeAttribute::getInstructionLength(size_t offset) {
 
   }
 
-  throw std::invalid_argument(formatString("Unknown opcode %d", opCode));
+  throw std::invalid_argument("Unknown opcode {}"_format(opCode));
 }
 
 void InstructionPrintIterator::operator++(int) {
   if (offset > code.getSize()) {
-    throw std::out_of_range(formatString("Current offset: %d, bytecode length: %d", offset, code.getSize()));
+    throw std::out_of_range("Current offset: {}, bytecode length: {}"_format(offset, code.getSize()));
   }
 
 //  log.info(formatString("Offset before: %d", offset));
@@ -199,7 +202,7 @@ std::tuple<uint16_t, uint8_t> InstructionIterator::operator*() const {
 
 void InstructionIterator::operator++(int) {
   if (offset > code.getSize()) {
-    throw std::out_of_range(formatString("Current offset: %d, bytecode length: %d", offset, code.getSize()));
+    throw std::out_of_range("Current offset: {}, bytecode length: {}"_format(offset, code.getSize()));
   }
 
   offset += Constants::InstructionLength[code.getOpcode(offset)];
