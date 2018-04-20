@@ -30,7 +30,15 @@ if ((NOT SPDLOG_INCLUDE_DIR) OR (NOT EXISTS ${SPDLOG_INCLUDE_DIR}))
 endif ()
 include_directories(${SPDLOG_INCLUDE_DIR})
 
+set(BACKWARD_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/backward-cpp)
+if (NOT EXISTS ${BACKWARD_INCLUDE_DIR})
+  message("Init backward-cpp submodule")
+  execute_process(COMMAND git submodule update --init)
+endif ()
+include_directories(${BACKWARD_INCLUDE_DIR})
+
 file(GLOB SOURCES src/main/cpp/*.cpp)
+set(SOURCES ${SOURCES} ${BACKWARD_INCLUDE_DIR}/backward.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 target_link_libraries(${PROJECT_NAME} "-lstdc++")
