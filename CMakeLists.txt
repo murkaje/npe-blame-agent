@@ -38,10 +38,9 @@ endif ()
 include_directories(${BACKWARD_INCLUDE_DIR})
 
 file(GLOB SOURCES src/main/cpp/*.cpp)
-set(SOURCES ${SOURCES} ${BACKWARD_INCLUDE_DIR}/backward.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 target_link_libraries(${PROJECT_NAME} "-lstdc++")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "npeblame")
-set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
+set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "")

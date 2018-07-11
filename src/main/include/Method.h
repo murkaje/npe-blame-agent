@@ -12,26 +12,31 @@ class Method {
   std::string className;
   std::string returnType;
   std::string methodName;
+  std::string signature;
   std::vector<std::string> parameterTypes;
   uint8_t parameterLength;
 
 public:
-  Method(std::string className, std::string methodName, const std::string &signature, bool isStatic);
+  Method(std::string_view className, std::string_view methodName, std::string_view signature, bool isStatic);
 
   static Method readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
 
   static Method readFromMemberRef(const ConstPool &constPool, size_t refId, bool isStatic);
 
-  const std::string &getClassName() const {
+  std::string_view getClassName() const {
     return className;
   }
 
-  const std::string &getReturnType() const {
+  std::string_view getReturnType() const {
     return returnType;
   }
 
-  const std::string &getMethodName() const {
+  std::string_view getMethodName() const {
     return methodName;
+  }
+
+  std::string_view getMethodSignature() const {
+    return signature;
   }
 
   const std::vector<std::string> &getParameterTypes() const {
@@ -54,4 +59,9 @@ public:
   bool isStatic() const {
     return methodStatic;
   }
+};
+
+struct Frame {
+  Method method;
+  jlocation location;
 };

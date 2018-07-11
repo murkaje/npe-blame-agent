@@ -115,30 +115,13 @@ std::tuple<jint, std::vector<uint8_t>> getConstPool(jvmtiEnv *jvmti, jclass klas
   return std::make_tuple(cpCount, constPool);
 }
 
-std::vector<uint8_t> getMethodBytecode(jvmtiEnv *jvmti, jmethodID method) {
-  jvmtiError err;
-
-  jint bytecodeLength;
-  uint8_t *bytecodes;
-
-  err = jvmti->GetBytecodes(method, &bytecodeLength, &bytecodes);
-  check_jvmti_error(jvmti, err, "Get method bytecodes");
-
-  std::vector<uint8_t> methodBytecode(bytecodes, bytecodes + bytecodeLength);
-
-  err = jvmti->Deallocate(bytecodes);
-  check_jvmti_error(jvmti, err, "Deallocate bytecodes");
-
-  return methodBytecode;
-}
-
-std::string toJavaClassName(const std::string &jvmClassName) {
-  std::string javaClassName = jvmClassName;
+std::string toJavaClassName(std::string_view jvmClassName) {
+  std::string javaClassName{jvmClassName};
   std::replace(javaClassName.begin(), javaClassName.end(), '/', '.');
   return javaClassName;
 }
 
-std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size_t *outEndPos) {
+std::string toJavaTypeName(std::string_view jvmTypeName, size_t startPos, size_t *outEndPos) {
   if (jvmTypeName.empty()) { throw std::invalid_argument("Empty string is not a signature"); }
 
   size_t pos = startPos;
@@ -199,7 +182,7 @@ std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size
       pos++;
       break;
     default:
-      throw std::invalid_argument("Unknown type letter " + jvmTypeName.substr(pos, pos));
+      throw std::invalid_argument("Unknown type letter '{}'"_format(jvmTypeName.substr(pos, pos)));
   }
 
   if (outEndPos != nullptr) {
@@ -220,7 +203,7 @@ std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos, size
 }
 
 // (Ljava/lang/Class;IIZ)V -> void (Class, int, int, bool)
-std::string parseMethodSignature(const std::string &signature, const std::string &methodName) {
+std::string parseMethodSignature(std::string_view signature, std::string_view methodName) {
   size_t pos = 0;
 
   if (signature.empty() || signature[pos] != '(') {
@@ -250,7 +233,7 @@ std::string parseMethodSignature(const std::string &signature, const std::string
 
   }
 
-  return type + " " + methodName + "(" + ss.str() + ")";
+  return "{} {}({})"_format(type, methodName, ss.str());
 
 }
 

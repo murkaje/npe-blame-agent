@@ -398,6 +398,10 @@ public:
     return *entries.at(index);
   }
 
+  size_t size() const {
+    return entries.size();
+  }
+
   std::string entryToString(size_t index, bool identifier = true) const;
 
   void print() const;

@@ -19,21 +19,15 @@ void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &ac
 
 std::string jstringToString(JNIEnv *jni, jstring str);
 
-std::tuple<std::string, std::string> getMethodNameAndSignature(jvmtiEnv *jvmti, jmethodID method);
-
 std::string getClassName(JNIEnv *jni, jclass klass);
 
 std::string getExceptionMessage(JNIEnv *jni, jobject exception);
 
-std::tuple<jint, std::vector<uint8_t>> getConstPool(jvmtiEnv *jvmti, jclass klass);
+std::string toJavaClassName(std::string_view jvmClassName);
 
-std::vector<uint8_t> getMethodBytecode(jvmtiEnv *jvmti, jmethodID method);
+std::string toJavaTypeName(std::string_view jvmTypeName, size_t startPos = 0, size_t *outEndPos = nullptr);
 
-std::string toJavaClassName(const std::string &jvmClassName);
-
-std::string toJavaTypeName(const std::string &jvmTypeName, size_t startPos = 0, size_t *outEndPos = nullptr);
-
-std::string parseMethodSignature(const std::string &signature, const std::string &methodName);
+std::string parseMethodSignature(std::string_view signature, std::string_view methodName);
 
 uint8_t opcodeSlot(uint8_t opCode);
 

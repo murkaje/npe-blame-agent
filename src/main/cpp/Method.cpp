@@ -4,8 +4,8 @@
 
 using fmt::literals::operator""_format;
 
-Method::Method(std::string className, std::string methodName, const std::string &signature, bool isStatic) :
-    methodStatic(isStatic), className(std::move(className)), methodName(std::move(methodName)), parameterLength(0) {
+Method::Method(std::string_view className, std::string_view methodName, std::string_view signature, bool isStatic) :
+    methodStatic(isStatic), className(className), methodName(methodName), signature(signature), parameterLength(0) {
   size_t pos = 0;
 
   if (signature.empty() || signature[pos] != '(') {

@@ -5,7 +5,7 @@
 #include "util.h"
 #include "Field.h"
 
-using fmt::literals::operator""_format;
+using fmt::literals::operator ""_format;
 
 int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off, int stackExcess) {
   uint8_t opCode = code.getOpcode(off);
@@ -17,7 +17,8 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
     auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
     int invokeStackDelta = -invokedMethod.getParameterLength();
     if (invokedMethod.getReturnType() != "void") { invokeStackDelta++; }
-    if (opCode == OpCodes::INVOKEVIRTUAL || opCode == OpCodes::INVOKEINTERFACE || opCode == OpCodes::INVOKESPECIAL) { invokeStackDelta--; }
+    if (opCode == OpCodes::INVOKEVIRTUAL || opCode == OpCodes::INVOKEINTERFACE ||
+        opCode == OpCodes::INVOKESPECIAL) { invokeStackDelta--; }
     return invokeStackDelta;
   }
 
@@ -105,7 +106,8 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
     }
   }
 
-  throw std::invalid_argument("Unsupported opcode for calculating stack delta: {}"_format(Constants::OpcodeMnemonic[opCode]));
+  throw std::invalid_argument(
+      "Unsupported opcode for calculating stack delta: {}"_format(Constants::OpcodeMnemonic[opCode]));
 }
 
 std::string traceDetailedCause(const Method &currentFrameMethod,
@@ -125,7 +127,8 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
     size_t off = instructions[--ins];
 
     int stackDelta = getStackDelta(code, constPool, off, stackExcess);
-    getLogger("Analyzer")->trace("Op: {}, delta: {}, excess: {}", Constants::OpcodeMnemonic[code.getOpcode(off)], stackDelta, stackExcess);
+    getLogger("Analyzer")->trace("Op: {}, delta: {}, excess: {}", Constants::OpcodeMnemonic[code.getOpcode(off)],
+                                 stackDelta, stackExcess);
     stackExcess -= stackDelta;
     if (stackExcess > 0 || stackExcess == 0 && stackDelta != 0) {
       continue;
@@ -151,14 +154,14 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
         if (isMethodParam) {
           int index = currentFrameMethod.isStatic() ? 1 : 0;
           int paramSlot = 0;
-          for(std::string_view param : currentFrameMethod.getParameterTypes()) {
-            if(param == "long" || param == "double") {
+          for (std::string_view param : currentFrameMethod.getParameterTypes()) {
+            if (param == "long" || param == "double") {
               paramSlot += 2;
             } else {
               paramSlot++;
             }
             index++;
-            if(paramSlot == slot) break;
+            if (paramSlot == slot) break;
           }
           return "method parameter at index {}"_format(index);
         } else {
@@ -181,7 +184,7 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
       auto invokedMethod = Method::readFromCodeInvoke(code, constPool, off);
 
       if (invokedMethod.getReturnType() != "void") {
-        return "object returned from " + invokedMethod.getClassName() + "#" + invokedMethod.getMethodName();
+        return "object returned from {}#{}"_format(invokedMethod.getClassName(), invokedMethod.getMethodName());
       }
     }
   }
@@ -189,7 +192,8 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
   return "UNKNOWN";
 }
 
-std::string describeNPEInstruction(const Method &currentFrameMethod, const ConstPool &cp, const CodeAttribute &code, const LocalVariableTable &vars, size_t location) {
+std::string describeNPEInstruction(const Method &currentFrameMethod, const ConstPool &cp, const CodeAttribute &code,
+                                   const LocalVariableTable &vars, size_t location) {
   std::string errorSource;
   int stackExcess;
 
@@ -201,7 +205,7 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
       errorSource = "Assertion Objects#requireNonNull failed for null ";
       stackExcess = 0;
     } else {
-      errorSource = "Invoking " + method.getClassName() + "#" + method.getMethodName() + " on null ";
+      errorSource = "Invoking {}#{} on null "_format(method.getClassName(), method.getMethodName());
       stackExcess = method.getParameterLength();
     }
   } else if (op >= OpCodes::GETFIELD && op <= OpCodes::PUTFIELD) {
