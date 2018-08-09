@@ -7,8 +7,7 @@
 #include "ConstPool.h"
 
 class Method {
-  //TODO: other method modifiers?
-  bool methodStatic;
+  uint32_t modifiers;
   std::string className;
   std::string returnType;
   std::string methodName;
@@ -17,11 +16,11 @@ class Method {
   uint8_t parameterLength;
 
 public:
-  Method(std::string_view className, std::string_view methodName, std::string_view signature, bool isStatic);
+  Method(std::string_view className, std::string_view methodName, std::string_view signature, uint32_t modifiers);
 
   static Method readFromCodeInvoke(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
 
-  static Method readFromMemberRef(const ConstPool &constPool, size_t refId, bool isStatic);
+  static Method readFromMemberRef(const ConstPool &constPool, size_t refId, uint32_t modifiers);
 
   std::string_view getClassName() const {
     return className;
@@ -56,9 +55,57 @@ public:
     return parameterLength;
   }
 
-  bool isStatic() const {
-    return methodStatic;
+  //region Method modifiers
+
+  bool isPublic() const {
+    return (modifiers & Modifier::PUBLIC) != 0;
   }
+
+  bool isPrivate() const {
+    return (modifiers & Modifier::PRIVATE) != 0;
+  }
+
+  bool isProtected() const {
+    return (modifiers & Modifier::PROTECTED) != 0;
+  }
+
+  bool isStatic() const {
+    return (modifiers & Modifier::STATIC) != 0;
+  }
+
+  bool isFinal() const {
+    return (modifiers & Modifier::FINAL) != 0;
+  }
+
+  bool isSynchronized() const {
+    return (modifiers & Modifier::SYNCHRONIZED) != 0;
+  }
+
+  bool isBridge() const {
+    return (modifiers & Modifier::BRIDGE) != 0;
+  }
+
+  bool isVarargs() const {
+    return (modifiers & Modifier::VARARGS) != 0;
+  }
+
+  bool isNative() const {
+    return (modifiers & Modifier::NATIVE) != 0;
+  }
+
+  bool isAbstract() const {
+    return (modifiers & Modifier::ABSTRACT) != 0;
+  }
+
+  bool isStrictfp() const {
+    return (modifiers & Modifier::STRICT) != 0;
+  }
+
+  bool isSynthetic() const {
+    return (modifiers & Modifier::SYNTHETIC) != 0;
+  }
+  //endregion
+
 };
 
 struct Frame {

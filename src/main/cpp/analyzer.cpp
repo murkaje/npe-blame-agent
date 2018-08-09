@@ -149,7 +149,7 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
       auto optVarInfo = vars.getEntry(slot);
       if (optVarInfo.has_value()) {
         auto[name, signature] = *optVarInfo;
-        return (isMethodParam ? "method parameter " : "local variable ") + name + ":" + toJavaTypeName(signature);
+        return "{} {}:{}"_format(isMethodParam ? "method parameter" : "local variable", name, toJavaTypeName(signature));
       } else {
         if (isMethodParam) {
           int index = currentFrameMethod.isStatic() ? 1 : 0;

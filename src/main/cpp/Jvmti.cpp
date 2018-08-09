@@ -1,8 +1,10 @@
 #include "Jvmti.h"
 
 #include <util.h>
+#include <Jvmti.h>
 
-static void Jvmti::init(JavaVM *vm) {
+
+void Jvmti::init(JavaVM *vm) {
   jvmtiEnv *initEnv = nullptr;
 
   jint errorCode = vm->GetEnv((void **) &initEnv, JVMTI_VERSION_1_1);
@@ -38,7 +40,7 @@ static void Jvmti::init(JavaVM *vm) {
   env = initEnv;
 }
 
-static bool Jvmti::isMethodNative(jmethodID method) {
+bool Jvmti::isMethodNative(jmethodID method) {
   jboolean isNative;
   jvmtiError err = env->IsMethodNative(method, &isNative);
   checkError(err);
@@ -46,7 +48,7 @@ static bool Jvmti::isMethodNative(jmethodID method) {
   return isNative;
 }
 
-static std::pair<jmethodID, jlocation> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
+std::pair<jmethodID, jlocation> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
   jmethodID methodId;
   jlocation location;
 
@@ -56,7 +58,7 @@ static std::pair<jmethodID, jlocation> Jvmti::getFrameLocation(jthread thread, u
   return std::make_pair(methodId, location);
 }
 
-static jclass Jvmti::getMethodDeclaringClass(jmethodID method) {
+jclass Jvmti::getMethodDeclaringClass(jmethodID method) {
   jclass methodClass;
   jvmtiError err = env->GetMethodDeclaringClass(method, &methodClass);
   checkError(err);
@@ -64,7 +66,7 @@ static jclass Jvmti::getMethodDeclaringClass(jmethodID method) {
   return methodClass;
 }
 
-static std::vector<uint8_t> Jvmti::getBytecodes(jmethodID method) {
+std::vector<uint8_t> Jvmti::getBytecodes(jmethodID method) {
   jvmtiError err;
 
   jint length;
@@ -79,7 +81,7 @@ static std::vector<uint8_t> Jvmti::getBytecodes(jmethodID method) {
   return methodBytecode;
 }
 
-static ConstPool Jvmti::getConstPool(jclass klass) {
+ConstPool Jvmti::getConstPool(jclass klass) {
   jint cpCount;
   jint cpByteSize;
   uint8_t *constPoolBytes;
@@ -95,14 +97,14 @@ static ConstPool Jvmti::getConstPool(jclass klass) {
   return constPool;
 }
 
-static int Jvmti::getMethodModifiers(jmethodID methodId) {
-  int modifiers;
-  jvmtiError err = env->GetMethodModifiers(methodId, &modifiers);
+uint32_t Jvmti::getMethodModifiers(jmethodID methodId) {
+  uint32_t modifiers;
+  jvmtiError err = env->GetMethodModifiers(methodId, reinterpret_cast<jint *>(&modifiers));
   checkError(err);
   return modifiers;
 }
 
-static Method Jvmti::getMethod(jmethodID methodId) {
+Method Jvmti::getMethod(jmethodID methodId) {
   char *methodName;
   char *methodSignature;
 
@@ -112,9 +114,9 @@ static Method Jvmti::getMethod(jmethodID methodId) {
   jclass methodClass = getMethodDeclaringClass(methodId);
   std::string methodClassName = getClassName(jni, methodClass);
 
-  jint modifiers = getMethodModifiers(methodId);
+  uint32_t modifiers = getMethodModifiers(methodId);
 
-  Method method{methodClassName, methodName, methodSignature, (((modifiers & Modifier::STATIC) != 0))};
+  Method method{methodClassName, methodName, methodSignature, modifiers};
 
   err = env->Deallocate((uint8_t *) methodName);
   checkError(err);
@@ -122,4 +124,43 @@ static Method Jvmti::getMethod(jmethodID methodId) {
   checkError(err);
 
   return method;
+}
+
+uint8_t Jvmti::getMethodArgumentsSize(jmethodID methodId) {
+  jint size;
+  jvmtiError err = env->GetArgumentsSize(methodId, &size);
+  checkError(err);
+  return static_cast<uint8_t>(size);
+}
+
+LocalVariableTable Jvmti::getLocalVariableTable(jmethodID methodId) {
+  jint localVariableEntryCount = 0;
+  jvmtiLocalVariableEntry *localVariableTable = nullptr;
+
+  jvmtiError err = env->GetLocalVariableTable(methodId, &localVariableEntryCount, &localVariableTable);
+  if (err == JVMTI_ERROR_ABSENT_INFORMATION) return {};
+  checkError(err);
+
+  LocalVariableTable table;
+  for (int i = 0; i < localVariableEntryCount; i++) {
+    table.addEntry(static_cast<uint8_t>(localVariableTable[i].slot), localVariableTable[i].name, localVariableTable[i].signature);
+
+    err = env->Deallocate((unsigned char *) localVariableTable[i].name);
+    checkError(err);
+    err = env->Deallocate((unsigned char *) localVariableTable[i].signature);
+    checkError(err);
+    err = env->Deallocate((unsigned char *) localVariableTable[i].generic_signature);
+    checkError(err);
+  }
+  err = env->Deallocate((unsigned char *) localVariableTable);
+  checkError(err);
+
+  return table;
+}
+
+uint32_t Jvmti::getFrameCount(jthread thread) {
+  jint count;
+  jvmtiError err = env->GetFrameCount(thread, &count);
+  checkError(err);
+  return static_cast<uint32_t>(count);
 }

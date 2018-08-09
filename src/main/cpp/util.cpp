@@ -16,17 +16,6 @@ std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
 
 static auto logger = getLogger("Util");
 
-void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &actionDescription) {
-  if (errnum != JVMTI_ERROR_NONE) {
-    char *errnum_str = nullptr;
-    jvmti->GetErrorName(errnum, &errnum_str);
-
-    logger->error("{}({]): {}", errnum, errnum_str, actionDescription);
-
-    jvmti->Deallocate((unsigned char *) errnum_str);
-  }
-}
-
 bool checkJniException(JNIEnv *jni, const std::string &actionDescription) {
   if (jni->ExceptionCheck()) {
     logger->error(actionDescription);
@@ -55,24 +44,6 @@ std::string jstringToString(JNIEnv *jni, jstring str) {
   return retval;
 }
 
-std::tuple<std::string, std::string> getMethodNameAndSignature(jvmtiEnv *jvmti, jmethodID method) {
-  char *methodName;
-  char *methodSignature;
-  jvmtiError err;
-
-  err = jvmti->GetMethodName(method, &methodName, &methodSignature, nullptr);
-  check_jvmti_error(jvmti, err, "Get method name");
-
-  auto nameAndSignature = std::make_tuple(std::string(methodName), std::string(methodSignature));
-
-  err = jvmti->Deallocate((uint8_t *) methodName);
-  check_jvmti_error(jvmti, err, "Deallocate methodName");
-  err = jvmti->Deallocate((uint8_t *) methodSignature);
-  check_jvmti_error(jvmti, err, "Deallocate methodSignature");
-
-  return nameAndSignature;
-};
-
 std::string getClassName(JNIEnv *jni, jclass klass) {
   jmethodID getClassID = jni->GetMethodID(klass, "getClass", "()Ljava/lang/Class;");
 
@@ -98,21 +69,6 @@ std::string getExceptionMessage(JNIEnv *jni, jobject exception) {
   jstring detailMessage = (jstring) jni->CallObjectMethod(exception, getMessageID);
 
   return jstringToString(jni, detailMessage);
-}
-
-std::tuple<jint, std::vector<uint8_t>> getConstPool(jvmtiEnv *jvmti, jclass klass) {
-  jint cpCount;
-  jint cpByteSize;
-  uint8_t *constPoolBytes;
-  jvmtiError err;
-
-  err = jvmti->GetConstantPool(klass, &cpCount, &cpByteSize, &constPoolBytes);
-  check_jvmti_error(jvmti, err, "Get constant pool");
-  std::vector<uint8_t> constPool(constPoolBytes, constPoolBytes + cpByteSize);
-  err = jvmti->Deallocate(constPoolBytes);
-  check_jvmti_error(jvmti, err, "Deallocate constPool");
-
-  return std::make_tuple(cpCount, constPool);
 }
 
 std::string toJavaClassName(std::string_view jvmClassName) {

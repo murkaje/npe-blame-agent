@@ -45,8 +45,14 @@ public:
 
   static ConstPool getConstPool(jclass klass);
 
-  static int getMethodModifiers(jmethodID methodId);
+  static uint32_t getMethodModifiers(jmethodID methodId);
 
   //replaces GetMethodName, otherwise we create temporary string copies
   static Method getMethod(jmethodID methodId);
+
+  static uint8_t getMethodArgumentsSize(jmethodID methodId);
+
+  static LocalVariableTable getLocalVariableTable(jmethodID methodId);
+
+  static uint32_t getFrameCount(jthread thread);
 };

@@ -26,6 +26,7 @@ void printBytecode(jlocation location, const ConstPool &constPool, const CodeAtt
     logger->log(level, "{:<6}: {}", iter.getOffset(), (*iter));
   }
 }
+
 /*
  * We could search the previous instructions for
  * new Ljava/lang/NullPointerException;
@@ -94,6 +95,30 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
   return true;
 }
 
+void printMethodParams(jvmtiEnv *jvmti, jthread thread) {
+  uint32_t frameCount = Jvmti::getFrameCount(thread);
+
+  for (uint32_t depth = 0; depth < frameCount; depth++) {
+    auto[methodId, location] = Jvmti::getFrameLocation(thread, depth);
+    Method method = Jvmti::getMethod(methodId);
+
+    if (method.isNative()) continue;
+
+    uint8_t paramSlots = Jvmti::getMethodArgumentsSize(methodId);
+    LocalVariableTable variables = Jvmti::getLocalVariableTable(methodId);
+
+    std::ostringstream oss;
+    for (uint8_t slot = 0; slot < paramSlots; slot++) {
+      if (auto optLVar = variables.getEntry(slot); optLVar.has_value()) {
+        auto[name, type] = *optLVar;
+        oss << name << "=" << "TODO" << ", ";
+        if (type == "long" || type == "double") slot++;
+      }
+    }
+    logger->debug("{}.{} args: [{}]", method.getClassName(), method.getMethodName(), oss.str());
+  }
+}
+
 void JNICALL exceptionCallback(jvmtiEnv *jvmti,
                                JNIEnv *jni,
                                jthread thread,
@@ -126,7 +151,7 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
 
     vector<uint8_t> methodBytecode = Jvmti::getBytecodes(method);
     ConstPool constPool = Jvmti::getConstPool(Jvmti::getMethodDeclaringClass(method));
-    LocalVariableTable localVariables(jvmti, method);
+    LocalVariableTable localVariables = Jvmti::getLocalVariableTable(method);
     CodeAttribute codeAttribute(methodBytecode, localVariables);
 
     logger->debug("{}: {}", exceptionClassName, exceptionMessage);
@@ -142,6 +167,8 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
     jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
     jni->SetObjectField(exception, detailMessageField, detailMessage);
     jni->DeleteLocalRef(detailMessage);
+
+    printMethodParams(jvmti, thread);
   } catch (const std::exception &e) {
     logger->error("Failed to run exception callback: {}", e.what());
   }

@@ -15,8 +15,6 @@ std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName);
 
 bool checkJniException(JNIEnv *jni, const std::string &actionDescription);
 
-void check_jvmti_error(jvmtiEnv *jvmti, jvmtiError errnum, const std::string &actionDescription);
-
 std::string jstringToString(JNIEnv *jni, jstring str);
 
 std::string getClassName(JNIEnv *jni, jclass klass);
