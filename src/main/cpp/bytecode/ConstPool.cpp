@@ -1,9 +1,9 @@
-#include "ConstPool.h"
+#include "bytecode/ConstPool.h"
 
 #include <fstream>
 #include <spdlog.h>
 
-#include "Constants.h"
+#include "bytecode/Constants.h"
 #include "util.h"
 
 using fmt::literals::operator""_format;

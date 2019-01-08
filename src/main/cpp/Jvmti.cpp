@@ -2,6 +2,7 @@
 
 #include <util.h>
 #include <Jvmti.h>
+#include <Jni.h>
 
 
 void Jvmti::init(JavaVM *vm) {
@@ -10,7 +11,7 @@ void Jvmti::init(JavaVM *vm) {
   jint errorCode = vm->GetEnv((void **) &initEnv, JVMTI_VERSION_1_1);
   if (errorCode != JNI_OK) {
     logger->error("Failed to acquire JVMTI 1.1 environment");
-    throw std::runtime_error("Failed to acquire JVMTI 1.1 environment");
+    throw JvmtiError("Failed to acquire JVMTI 1.1 environment");
   }
 
   jvmtiEventCallbacks callbacks = {nullptr};
@@ -48,14 +49,14 @@ bool Jvmti::isMethodNative(jmethodID method) {
   return isNative;
 }
 
-std::pair<jmethodID, jlocation> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
+pair<jmethodID, uint16_t> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
   jmethodID methodId;
   jlocation location;
 
   jvmtiError err = env->GetFrameLocation(thread, depth, &methodId, &location);
   checkError(err);
 
-  return std::make_pair(methodId, location);
+  return {methodId, static_cast<uint16_t>(location)};
 }
 
 jclass Jvmti::getMethodDeclaringClass(jmethodID method) {
@@ -98,32 +99,27 @@ ConstPool Jvmti::getConstPool(jclass klass) {
 }
 
 uint32_t Jvmti::getMethodModifiers(jmethodID methodId) {
-  uint32_t modifiers;
-  jvmtiError err = env->GetMethodModifiers(methodId, reinterpret_cast<jint *>(&modifiers));
+  jint modifiers;
+  jvmtiError err = env->GetMethodModifiers(methodId, &modifiers);
   checkError(err);
-  return modifiers;
+  return static_cast<uint32_t>(modifiers);
 }
 
-Method Jvmti::getMethod(jmethodID methodId) {
+pair<string, string> Jvmti::getMethodNameAndSignature(jmethodID methodId) {
   char *methodName;
   char *methodSignature;
 
   jvmtiError err = env->GetMethodName(methodId, &methodName, &methodSignature, nullptr);
   checkError(err);
 
-  jclass methodClass = getMethodDeclaringClass(methodId);
-  std::string methodClassName = getClassName(jni, methodClass);
-
-  uint32_t modifiers = getMethodModifiers(methodId);
-
-  Method method{methodClassName, methodName, methodSignature, modifiers};
+  pair<string, string> nameAndSignature = {string{methodName}, string{methodSignature}};
 
   err = env->Deallocate((uint8_t *) methodName);
   checkError(err);
   err = env->Deallocate((uint8_t *) methodSignature);
   checkError(err);
 
-  return method;
+  return nameAndSignature;
 }
 
 uint8_t Jvmti::getMethodArgumentsSize(jmethodID methodId) {
@@ -163,4 +159,12 @@ uint32_t Jvmti::getFrameCount(jthread thread) {
   jvmtiError err = env->GetFrameCount(thread, &count);
   checkError(err);
   return static_cast<uint32_t>(count);
+}
+
+Method Jvmti::toMethod(jmethodID methodId) {
+  jclass declaringClass = getMethodDeclaringClass(methodId);
+  auto[name, signature] = getMethodNameAndSignature(methodId);
+  uint32_t modifiers = getMethodModifiers(methodId);
+
+  return Method{getClassName(jni, declaringClass), name, signature, modifiers};
 }

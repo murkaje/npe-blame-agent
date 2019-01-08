@@ -1,4 +1,4 @@
-#include "Method.h"
+#include "bytecode/Method.h"
 
 #include "util.h"
 

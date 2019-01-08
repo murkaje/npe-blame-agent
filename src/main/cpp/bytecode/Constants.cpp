@@ -1,4 +1,4 @@
-#include "Constants.h"
+#include "bytecode/Constants.h"
 
 const char *Constants::CpInfoMnemonic[] = {
     "",

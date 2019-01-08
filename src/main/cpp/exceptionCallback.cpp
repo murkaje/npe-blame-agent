@@ -6,10 +6,11 @@
 #include <spdlog.h>
 #include <backward.hpp>
 
-#include "Method.h"
+#include "bytecode/Method.h"
 #include "analyzer.h"
 #include "util.h"
 #include "Jvmti.h"
+#include "Jni.h"
 
 using std::string;
 using std::vector;
@@ -51,7 +52,7 @@ void printBytecode(jlocation location, const ConstPool &constPool, const CodeAtt
  *   throw e.getTargetException();
  * }
  */
-bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, const string methodSignature,
+bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, const string &methodSignature,
                  jlocation location) {
   if (codeAttribute.getOpcode((size_t) location) == OpCodes::ATHROW) {
 
@@ -95,27 +96,27 @@ bool shouldPrint(const CodeAttribute &codeAttribute, const string &methodName, c
   return true;
 }
 
-void printMethodParams(jvmtiEnv *jvmti, jthread thread) {
+void printMethodParams(jthread thread) {
   uint32_t frameCount = Jvmti::getFrameCount(thread);
 
   for (uint32_t depth = 0; depth < frameCount; depth++) {
     auto[methodId, location] = Jvmti::getFrameLocation(thread, depth);
-    Method method = Jvmti::getMethod(methodId);
 
-    if (method.isNative()) continue;
+    if (Jvmti::isMethodNative(methodId)) continue;
 
     uint8_t paramSlots = Jvmti::getMethodArgumentsSize(methodId);
     LocalVariableTable variables = Jvmti::getLocalVariableTable(methodId);
+    Method method = Jvmti::toMethod(methodId);
 
     std::ostringstream oss;
     for (uint8_t slot = 0; slot < paramSlots; slot++) {
-      if (auto optLVar = variables.getEntry(slot); optLVar.has_value()) {
-        auto[name, type] = *optLVar;
+      if (auto optLocalVar = variables.getEntry(slot); optLocalVar.has_value()) {
+        auto[name, type] = *optLocalVar;
         oss << name << "=" << "TODO" << ", ";
         if (type == "long" || type == "double") slot++;
       }
     }
-    logger->debug("{}.{} args: [{}]", method.getClassName(), method.getMethodName(), oss.str());
+    logger->trace("{}.{} args: [{}]", method.getClassName(), method.getMethodName(), oss.str());
   }
 }
 
@@ -129,24 +130,31 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
                                jlocation catch_location) {
 
   try {
+//    int i = Jni::invokeVirtual<"I">();
+
     if (Jvmti::isMethodNative(method) || location == 0) { return; }
+
+//    logger->info("{}", 1, 2);
 
     jclass exceptionClass = jni->GetObjectClass(exception);
     string exceptionClassName = getClassName(jni, exceptionClass);
     string exceptionMessage = getExceptionMessage(jni, exception);
+
+    logger->trace("ExceptionCallback {}: {}", exceptionClassName, exceptionMessage);
 
     if (exceptionClassName != "java.lang.NullPointerException") { return; }
 
     // If NPE has a message, e.g. when explicitly thrown, don't overwrite it
     if (!exceptionMessage.empty()) { return; }
 
-    Method currentFrameMethod = Jvmti::getMethod(method);
+    auto [methodName, signature] = Jvmti::getMethodNameAndSignature(method);
+    jclass declaringClass = Jvmti::getMethodDeclaringClass(method);
+    string declaringClassName = getClassName(jni, declaringClass);
 
     //JDK9 compiles implicit Objects.requireNonNull for indy/inner constructor - analyze method in previous frame instead
-    if (currentFrameMethod.getClassName() == "java.util.Objects" &&
-        currentFrameMethod.getMethodName() == "requireNonNull") {
+    if (declaringClassName == "java.util.Objects" && methodName == "requireNonNull") {
       std::tie(method, location) = Jvmti::getFrameLocation(thread, 1);
-      currentFrameMethod = Jvmti::getMethod(method);
+      std::tie(methodName, signature) = Jvmti::getMethodNameAndSignature(method);
     }
 
     vector<uint8_t> methodBytecode = Jvmti::getBytecodes(method);
@@ -155,20 +163,26 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
     CodeAttribute codeAttribute(methodBytecode, localVariables);
 
     logger->debug("{}: {}", exceptionClassName, exceptionMessage);
-    logger->debug("\tat {}.{}[{}]{}", currentFrameMethod.getClassName(), currentFrameMethod.getMethodName(), location,
-                  currentFrameMethod.getMethodSignature());
+    logger->debug("\tat {}.{}[{}]{}", declaringClassName, methodName, location, signature);
 
     printBytecode(location, constPool, codeAttribute);
 
-    std::string exceptionDetail = describeNPEInstruction(currentFrameMethod, constPool, codeAttribute, localVariables,
-                                                         location);
+    std::string exceptionDetail = describeNPEInstruction(Jvmti::toMethod(method), constPool, codeAttribute, localVariables, location);
 
+    //TODO: JNI invoke
+    /*
+     * Jni::putField(jobject, fieldName, fieldDesc, T value)
+     * compute type T from fieldDesc
+     * map jni <-> c++ type
+     * e.g.
+     * Jni::putField(obj, "someField", "Ljava/lang/String;", std::string_view str) -> SetObjectField
+     */
     jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
     jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
     jni->SetObjectField(exception, detailMessageField, detailMessage);
     jni->DeleteLocalRef(detailMessage);
 
-    printMethodParams(jvmti, thread);
+    printMethodParams(thread);
   } catch (const std::exception &e) {
     logger->error("Failed to run exception callback: {}", e.what());
   }

@@ -11,7 +11,8 @@ class Field {
   std::string typeName;
 
 public:
-  Field(std::string className, std::string fieldName, std::string typeName);
+  Field(std::string_view className, std::string_view fieldName, std::string_view typeName) :
+      className(className), fieldName(fieldName), typeName(typeName) {}
 
   static Field readFromFieldInsn(const CodeAttribute &code, const ConstPool &constPool, size_t bci);
 

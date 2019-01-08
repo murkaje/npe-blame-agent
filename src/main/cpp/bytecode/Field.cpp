@@ -1,9 +1,6 @@
-#include "Field.h"
+#include "bytecode/Field.h"
 
 #include "util.h"
-
-Field::Field(std::string className, std::string fieldName, std::string typeName) :
-    className(std::move(className)), fieldName(std::move(fieldName)), typeName(std::move(typeName)) {}
 
 Field Field::readFromFieldInsn(const CodeAttribute &code, const ConstPool &constPool, size_t bci) {
   uint8_t opCode = code.getOpcode(bci);

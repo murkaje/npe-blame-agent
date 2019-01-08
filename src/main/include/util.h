@@ -8,16 +8,20 @@
 #include <jvmti.h>
 #include <logger.h>
 
-#include "ConstPool.h"
-#include "CodeAttribute.h"
+#include "bytecode/ConstPool.h"
+#include "bytecode/CodeAttribute.h"
 
 std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName);
 
-bool checkJniException(JNIEnv *jni, const std::string &actionDescription);
+void checkJniException(JNIEnv *jni);
 
 std::string jstringToString(JNIEnv *jni, jstring str);
 
-std::string getClassName(JNIEnv *jni, jclass klass);
+std::string objectToString(JNIEnv *jni, jobject obj);
+
+std::string getObjectClassName(JNIEnv *jni, jobject obj);
+
+std::string getClassName(JNIEnv *jni, jclass cls);
 
 std::string getExceptionMessage(JNIEnv *jni, jobject exception);
 

@@ -1,4 +1,4 @@
-#include "LocalVariableTable.h"
+#include "bytecode/LocalVariableTable.h"
 
 #include "util.h"
 

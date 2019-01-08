@@ -1,4 +1,4 @@
-#include "CodeAttribute.h"
+#include "bytecode/CodeAttribute.h"
 
 #include <spdlog.h>
 #include <fmt/fmt.h>

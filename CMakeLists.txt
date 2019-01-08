@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/target)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-logical-op-parentheses")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-logical-op-parentheses -DBACKWARD_HAS_DW=1")
 
 if (UNIX AND NOT APPLE)
   include_directories($ENV{JAVA_HOME}/include/linux)
@@ -37,10 +37,12 @@ if (NOT EXISTS ${BACKWARD_INCLUDE_DIR})
 endif ()
 include_directories(${BACKWARD_INCLUDE_DIR})
 
-file(GLOB SOURCES src/main/cpp/*.cpp)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+file(GLOB_RECURSE SOURCES src/main/cpp/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
-target_link_libraries(${PROJECT_NAME} "-lstdc++")
+target_link_libraries(${PROJECT_NAME} -lstdc++ -ldw)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "npeblame")
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "")

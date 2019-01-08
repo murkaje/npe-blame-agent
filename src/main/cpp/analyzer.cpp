@@ -3,7 +3,7 @@
 #include <string_view>
 
 #include "util.h"
-#include "Field.h"
+#include "bytecode/Field.h"
 
 using fmt::literals::operator ""_format;
 
