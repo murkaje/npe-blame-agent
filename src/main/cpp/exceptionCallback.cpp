@@ -133,9 +133,10 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
   try {
     Jvmti::ensureInit(jvmti);
     Jni::ensureInit(jni);
+
     if (Jvmti::isMethodNative(method) || location == 0) { return; }
 
-    jclass exceptionClass = jni->GetObjectClass(exception);
+    jclass exceptionClass = Jni::getClass(exception);
     string exceptionClassName = Jni::invokeVirtual(exceptionClass, "getName", jnisig("()Ljava/lang/String;"));
     string exceptionMessage = Jni::getField(exception, "detailMessage", jnisig("Ljava/lang/String;"));
 
@@ -164,7 +165,7 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
 
     printBytecode(location, constPool, codeAttribute);
 
-    std::string exceptionDetail = describeNPEInstruction(Jvmti::toMethod(method), constPool, codeAttribute, localVariables, location);
+    string exceptionDetail = describeNPEInstruction(Jvmti::toMethod(method), constPool, codeAttribute, localVariables, location);
     Jni::putField(exception, "detailMessage", jnisig("Ljava/lang/String;"), exceptionDetail);
 
     printMethodParams(thread);

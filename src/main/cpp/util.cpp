@@ -64,55 +64,6 @@ std::string jstringToString(JNIEnv *jni, jstring str) {
   return retval;
 }
 
-std::string objectToString(JNIEnv *jni, jobject obj) {
-  jclass cls = jni->FindClass("java/lang/Object");
-  checkJniException(jni, false);
-
-  jmethodID toString = jni->GetMethodID(cls, "toString", "()Ljava/lang/String;");
-  if(toString == nullptr) throw JniError("No such method Object#toString");
-  checkJniException(jni, false);
-
-  jstring str = (jstring) jni->CallObjectMethod(obj, toString);
-  checkJniException(jni, false);
-
-  return jstringToString(jni, str);
-}
-
-std::string getObjectClassName(JNIEnv *jni, jobject obj) {
-  jclass cls = jni->GetObjectClass(obj);
-  checkJniException(jni);
-  return getClassName(jni, cls);
-}
-
-std::string getClassName(JNIEnv *jni, jclass cls) {
-  jclass javaLangClass = jni->FindClass("java/lang/Class");
-
-  // doing GetMethodID on cls directly throws NoSuchMethodError, the fuck?
-  jmethodID getNameID = jni->GetMethodID(javaLangClass, "getName", "()Ljava/lang/String;");
-  checkJniException(jni);
-
-  jstring className = (jstring) jni->CallObjectMethod(cls, getNameID);
-  if (className == nullptr) {
-    logger->warn("Failed to call java.lang.Class#getName");
-  }
-  checkJniException(jni);
-
-  return jstringToString(jni, className);
-}
-
-std::string getExceptionMessage(JNIEnv *jni, jobject exception) {
-  jclass throwableClass = jni->FindClass("java/lang/Throwable");
-  checkJniException(jni);
-
-  jmethodID getMessageID = jni->GetMethodID(throwableClass, "getMessage", "()Ljava/lang/String;");
-  checkJniException(jni);
-
-  jstring detailMessage = (jstring) jni->CallObjectMethod(exception, getMessageID);
-  checkJniException(jni);
-
-  return jstringToString(jni, detailMessage);
-}
-
 std::string toJavaClassName(std::string_view jvmClassName) {
   std::string javaClassName{jvmClassName};
   std::replace(javaClassName.begin(), javaClassName.end(), '/', '.');

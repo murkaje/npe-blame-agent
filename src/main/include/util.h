@@ -17,14 +17,6 @@ void checkJniException(JNIEnv *jni, bool tryPrint = true);
 
 std::string jstringToString(JNIEnv *jni, jstring str);
 
-std::string objectToString(JNIEnv *jni, jobject obj);
-
-std::string getObjectClassName(JNIEnv *jni, jobject obj);
-
-std::string getClassName(JNIEnv *jni, jclass cls);
-
-std::string getExceptionMessage(JNIEnv *jni, jobject exception);
-
 std::string toJavaClassName(std::string_view jvmClassName);
 
 std::string toJavaTypeName(std::string_view jvmTypeName, size_t startPos = 0, size_t *outEndPos = nullptr);

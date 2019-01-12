@@ -148,9 +148,9 @@ struct TypeChecker {
       if constexpr (!matches)
         UnexpectedType("Expected jobject at parameter index=", idx);
     } else if (t == Type::StringType) {
-      constexpr bool matches = std::is_same_v<std::string, DeclaredType>;
+      constexpr bool matches = std::is_same_v<std::string_view, DeclaredType> || std::is_same_v<std::string, DeclaredType>;
       if constexpr (!matches)
-        UnexpectedType("Expected std::string at parameter index=", idx);
+        UnexpectedType("Expected std::string or std::string_view at parameter index=", idx);
     } else {
       THROW("Invalid type");
     }
@@ -167,13 +167,6 @@ struct FieldSignatureChecker {
   explicit constexpr FieldSignatureChecker(string_view signature) : fieldType(typeOf(signature)) {
     TypeChecker<ArgType, FieldSignatureChecker>::check(*this);
   }
-
-//  void onError(const char *message) {
-//    do {
-//      static_cast<void>(sizeof(message));
-//      assert(false);
-//    } while (false);
-//  }
 
   constexpr size_t nextIndex() {
     return 0;
@@ -212,6 +205,9 @@ struct SignatureChecker {
       char typeChar = *it++;
 
       if (typeChar == ')') {
+        if (parsingObject) {
+          THROW("Reached end of parameters while reading object type from signature. Missing ';' somewhere?");
+        }
         if (index != argc) {
           THROW("Signature specifies more arguments than passed to function");
         }
@@ -242,20 +238,13 @@ struct SignatureChecker {
     }
 
     if (parsingObject) {
-      THROW("Reached end of signature while reading object type from signature. Missing ';' somewhere?");
+      THROW("Reached end of signature while reading object type. Missing ';' somewhere?");
     }
 
     for (auto checkFun : checkers) {
       checkFun(*this);
     }
   }
-
-//  void onError(const char *message) {
-//    do {
-//      static_cast<void>(sizeof(message));
-//      assert(false);
-//    } while (false);
-//  }
 
   constexpr size_t nextIndex() {
     if (curIndex == argc) {
@@ -273,34 +262,45 @@ struct SignatureChecker {
   }
 };
 
-using std::string_view_literals::operator ""sv;
-using std::string_literals::operator ""s;
 #define jnisig(x) typestring_is(x){}
 
 class Jni {
   inline static thread_local JNIEnv *jni = nullptr;
   inline static std::shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
 
+  struct JString {
+    jstring elem;
+    JString() = default;
+    JString(std::string_view str) {
+      elem = jni->NewStringUTF(str.data());
+      checkJniException(jni);
+    }
+    //Not trivial...
+    ~JString() noexcept(false) {
+      jni->DeleteLocalRef(elem);
+      checkJniException(jni);
+    }
+    operator jstring() const {
+      return elem;
+    }
+  };
+
+  struct JniScopedExceptionChecker {
+    ~JniScopedExceptionChecker() noexcept(false) {
+      checkJniException(jni);
+    }
+  };
+
   template<class PassedType>
   static auto toJniType(PassedType arg) {
     return arg;
   }
 
-  // TODO: Return RAII container with implicit conversion to string_view?
-  template<>
-  static auto toJniType<std::string>(std::string arg) {
+  static auto toJniType(std::string_view arg) {
+    //TODO: Figure out how to fix leak, can't use any destructors as those become non-trivial types
+    //TODO: Perhaps add it to some list for later cleanup?
     return jni->NewStringUTF(arg.data());
   }
-
-  template<Type ExpectedType, class T>
-  static auto toNativeType(T arg) {
-    return arg;
-  }
-
-//  template<>
-//  static auto toNativeType<Type::StringType>(jstring arg) {
-//    return jstringToString(jni, arg);
-//  }
 
 public:
 
@@ -308,11 +308,74 @@ public:
     jni = tjni;
   }
 
-  static JNIEnv* getJni() {
-    return jni;
+  //TODO: arrays, e.g. invokeVirtual(obj, method, ([B)V, (std::vector<char>? char[]?))
+  //TODO: new, invokespecial
+
+  template<char... Signature>
+  static auto getStatic(jclass klass, string_view fieldName, typestring<Signature...> signature) {
+    jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr Type fieldType = typeOf(signature.data());
+    JniScopedExceptionChecker beforeReturn;
+    if constexpr (fieldType == Type::IntType) {
+      return jni->GetStaticIntField(klass, fieldId);
+    } else if constexpr (fieldType == Type::LongType) {
+      return jni->GetStaticLongField(klass, fieldId);
+    } else if constexpr (fieldType == Type::ShortType) {
+      return jni->GetStaticShortField(klass, fieldId);
+    } else if constexpr (fieldType == Type::CharType) {
+      return jni->GetStaticCharField(klass, fieldId);
+    } else if constexpr (fieldType == Type::ByteType) {
+      return jni->GetStaticByteField(klass, fieldId);
+    } else if constexpr (fieldType == Type::FloatType) {
+      return jni->GetStaticFloatField(klass, fieldId);
+    } else if constexpr (fieldType == Type::DoubleType) {
+      return jni->GetStaticDoubleField(klass, fieldId);
+    } else if constexpr (fieldType == Type::StringType) {
+      return jstringToString(jni, (jstring) jni->GetStaticObjectField(klass, fieldId));
+    } else if constexpr (fieldType == Type::ObjectType) {
+      return jni->GetStaticObjectField(klass, fieldId);
+    } else if constexpr (fieldType == Type::BoolType) {
+      return jni->GetStaticBooleanField(klass, fieldId);
+    } else {
+      throw JniError("Unknown field type");
+    }
   }
 
-  //TODO: putStatic, getStatic, invokeStatic, ARRAYS!!!(as args and return types)
+  template<char... Signature, typename ArgType>
+  static void putStatic(jclass klass, string_view fieldName, typestring<Signature...> signature, ArgType value) {
+    constexpr FieldSignatureChecker<ArgType> checker(signature.data());
+
+    jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr Type fieldType = checker.getFieldType();
+    if constexpr (fieldType == Type::IntType) {
+      jni->SetStaticIntField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::LongType) {
+      jni->SetStaticLongField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::ShortType) {
+      jni->SetStaticShortField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::CharType) {
+      jni->SetStaticCharField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::ByteType) {
+      jni->SetStaticByteField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::FloatType) {
+      jni->SetStaticFloatField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::DoubleType) {
+      jni->SetStaticDoubleField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::StringType) {
+      jni->SetStaticObjectField(klass, fieldId, JString(value));
+    } else if constexpr (fieldType == Type::ObjectType) {
+      jni->SetStaticObjectField(klass, fieldId, value);
+    } else if constexpr (fieldType == Type::BoolType) {
+      jni->SetStaticBooleanField(klass, fieldId, value);
+    } else {
+      throw JniError("Unknown field type");
+    }
+    checkJniException(jni);
+  }
 
   template<char... Signature>
   static auto getField(jobject object, string_view fieldName, typestring<Signature...> signature) {
@@ -321,26 +384,27 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type t = typeOf(signature.data());
-    if constexpr (t == Type::IntType) {
+    constexpr Type fieldType = typeOf(signature.data());
+    JniScopedExceptionChecker beforeReturn;
+    if constexpr (fieldType == Type::IntType) {
       return jni->GetIntField(object, fieldId);
-    } else if constexpr (t == Type::LongType) {
+    } else if constexpr (fieldType == Type::LongType) {
       return jni->GetLongField(object, fieldId);
-    } else if constexpr (t == Type::ShortType) {
+    } else if constexpr (fieldType == Type::ShortType) {
       return jni->GetShortField(object, fieldId);
-    } else if constexpr (t == Type::CharType) {
+    } else if constexpr (fieldType == Type::CharType) {
       return jni->GetCharField(object, fieldId);
-    } else if constexpr (t == Type::ByteType) {
+    } else if constexpr (fieldType == Type::ByteType) {
       return jni->GetByteField(object, fieldId);
-    } else if constexpr (t == Type::FloatType) {
+    } else if constexpr (fieldType == Type::FloatType) {
       return jni->GetFloatField(object, fieldId);
-    } else if constexpr (t == Type::DoubleType) {
+    } else if constexpr (fieldType == Type::DoubleType) {
       return jni->GetDoubleField(object, fieldId);
-    } else if constexpr (t == Type::StringType) {
+    } else if constexpr (fieldType == Type::StringType) {
       return jstringToString(jni, (jstring) jni->GetObjectField(object, fieldId));
-    } else if constexpr (t == Type::ObjectType) {
+    } else if constexpr (fieldType == Type::ObjectType) {
       return jni->GetObjectField(object, fieldId);
-    } else if constexpr (t == Type::BoolType) {
+    } else if constexpr (fieldType == Type::BoolType) {
       return jni->GetBooleanField(object, fieldId);
     } else {
       throw JniError("Unknown field type");
@@ -356,31 +420,66 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type t = checker.getFieldType();
-    if constexpr (t == Type::IntType) {
+    constexpr Type fieldType = checker.getFieldType();
+    if constexpr (fieldType == Type::IntType) {
       jni->SetIntField(object, fieldId, value);
-    } else if constexpr (t == Type::LongType) {
+    } else if constexpr (fieldType == Type::LongType) {
       jni->SetLongField(object, fieldId, value);
-    } else if constexpr (t == Type::ShortType) {
+    } else if constexpr (fieldType == Type::ShortType) {
       jni->SetShortField(object, fieldId, value);
-    } else if constexpr (t == Type::CharType) {
+    } else if constexpr (fieldType == Type::CharType) {
       jni->SetCharField(object, fieldId, value);
-    } else if constexpr (t == Type::ByteType) {
+    } else if constexpr (fieldType == Type::ByteType) {
       jni->SetByteField(object, fieldId, value);
-    } else if constexpr (t == Type::FloatType) {
+    } else if constexpr (fieldType == Type::FloatType) {
       jni->SetFloatField(object, fieldId, value);
-    } else if constexpr (t == Type::DoubleType) {
+    } else if constexpr (fieldType == Type::DoubleType) {
       jni->SetDoubleField(object, fieldId, value);
-    } else if constexpr (t == Type::StringType) {
-      jstring str = jni->NewStringUTF(value.data());
-      jni->SetObjectField(object, fieldId, str);
-      jni->DeleteLocalRef(str);
-    } else if constexpr (t == Type::ObjectType) {
+    } else if constexpr (fieldType == Type::StringType) {
+      jni->SetObjectField(object, fieldId, JString(value));
+    } else if constexpr (fieldType == Type::ObjectType) {
       jni->SetObjectField(object, fieldId, value);
-    } else if constexpr (t == Type::BoolType) {
+    } else if constexpr (fieldType == Type::BoolType) {
       jni->SetBooleanField(object, fieldId, value);
     } else {
       throw JniError("Unknown field type");
+    }
+    checkJniException(jni);
+  }
+
+  template<char... Signature, typename... ArgType>
+  static auto invokeStatic(jclass klass, string_view methodName, typestring<Signature...> signature, ArgType... args) {
+    constexpr SignatureChecker<ArgType...> checker(signature.data());
+
+    jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr auto retType = checker.getRetType();
+    JniScopedExceptionChecker beforeReturn;
+    if constexpr (retType == Type::StringType) {
+      return jstringToString(jni, (jstring) jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...));
+    } else if constexpr (retType == Type::IntType) {
+      return jni->CallStaticIntMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::LongType) {
+      return jni->CallStaticLongMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ShortType) {
+      return jni->CallStaticShortMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::CharType) {
+      return jni->CallStaticCharMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ByteType) {
+      return jni->CallStaticByteMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::FloatType) {
+      return jni->CallStaticFloatMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::DoubleType) {
+      return jni->CallStaticDoubleMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ObjectType) {
+      return jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::BoolType) {
+      return jni->CallStaticBooleanMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::VoidType) {
+      jni->CallStaticVoidMethod(klass, methodId, toJniType(args)...);
+    } else {
+      throw JniError("Unknown return type");
     }
   }
 
@@ -393,66 +492,49 @@ public:
     jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr auto R = checker.getRetType();
-//    if(logger->should_log(spdlog::level::debug)) {
-//      std::string className = invokeVirtual(klass, "getName", jnisig("()Ljava/lang/String;"));
-//      logger->debug("Jni::invokeVirtual {}", signature.data());
-//    }
-    if constexpr (R == Type::StringType) {
+    constexpr auto retType = checker.getRetType();
+    JniScopedExceptionChecker beforeReturn;
+    if constexpr (retType == Type::StringType) {
       return jstringToString(jni, (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...));
-    } else if constexpr (R == Type::IntType) {
+    } else if constexpr (retType == Type::IntType) {
       return jni->CallIntMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::LongType) {
+    } else if constexpr (retType == Type::LongType) {
       return jni->CallLongMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::ShortType) {
+    } else if constexpr (retType == Type::ShortType) {
       return jni->CallShortMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::CharType) {
+    } else if constexpr (retType == Type::CharType) {
       return jni->CallCharMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::ByteType) {
+    } else if constexpr (retType == Type::ByteType) {
       return jni->CallByteMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::FloatType) {
+    } else if constexpr (retType == Type::FloatType) {
       return jni->CallFloatMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::DoubleType) {
+    } else if constexpr (retType == Type::DoubleType) {
       return jni->CallDoubleMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::ObjectType) {
+    } else if constexpr (retType == Type::ObjectType) {
       return jni->CallObjectMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::BoolType) {
+    } else if constexpr (retType == Type::BoolType) {
       return jni->CallBooleanMethod(object, methodId, toJniType(args)...);
-    } else if constexpr (R == Type::VoidType) {
+    } else if constexpr (retType == Type::VoidType) {
       jni->CallVoidMethod(object, methodId, toJniType(args)...);
-      return false;
     } else {
       throw JniError("Unknown return type");
     }
   }
 
+  static jclass getClass(jobject obj) {
+    jclass cls = jni->GetObjectClass(obj);
+    checkJniException(jni);
+    return cls;
+  }
+
   static void test() {
-//  int i = Jni::invokeVirtual("method", [] { return "()I"sv; });
-//  int i = Jni::invokeVirtual("method", typestring_is("()I"){});
-    std::string a = invokeVirtual(nullptr, "method", jnisig("(IIJLjava/lang/String;I)Ljava/lang/String;"), 1, 1, 3l, ""s, 1);
-//  int f = Jni::invokeVirtual("method", [] { return "()I"sv; }, 13);
+    using std::string_view_literals::operator ""sv;
+
+    std::string a = invokeVirtual(nullptr, "", jnisig("(IIJLjava/lang/String;I)Ljava/lang/String;"), 1, 1, 3l, ""sv, 1);
+//    int i = Jni::invokeVirtual(nullptr, "", jnisig("()V"));
+//    int f = Jni::invokeVirtual(nullptr, "", jnisig("()I"), 13);
+//    std::string b = invokeVirtual(nullptr, "", jnisig("(Ljava/lang/ObjectIIJ)Ljava/lang/String"), nullptr, 1, 2, 3l);
+    [[maybe_unused]]
+    bool c = invokeStatic(nullptr, "", jnisig("(IIJLjava/lang/String;I)Z"), 1, 1, 3l, ""sv, 1);
   }
 };
-
-//static void test() {
-//  using sig = decltype(parseSignature(typestring_is("()I")()));
-//  static_assert(sig::retType == Type::IntType);
-//  static_assert(sig::argc == 0);
-//
-//  using sig2 = decltype(parseSignature(typestring_is("()Ljava/lang/String;")()));
-//  static_assert(sig2::retType == Type::StringType);
-//  static_assert(sig2::argc == 0);
-//
-//  using sig3 = decltype(parseSignature(typestring_is("(II)J")()));
-//  static_assert(sig3::retType == Type::LongType);
-//  static_assert(sig3::argc == 2);
-//
-//  using sig4 = decltype(parseSignature(typestring_is("(ILjava/lang/String;ILcom/Bar;Z)J")()));
-//  static_assert(sig4::retType == Type::LongType);
-//  static_assert(sig4::argc == 5);
-//  static_assert(sig4::args[3] == Type::ObjectType);
-//
-//  int i = Jni::invokeVirtual<typestring_is("()I")>();
-//  std::string a = Jni::invokeVirtual<typestring_is("()Ljava/lang/String;")>();
-//}
-
