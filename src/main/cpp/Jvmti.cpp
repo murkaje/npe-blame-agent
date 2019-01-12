@@ -6,6 +6,8 @@
 
 
 void Jvmti::init(JavaVM *vm) {
+  logger->info("OnLoad npe-blame-agent");
+
   jvmtiEnv *initEnv = nullptr;
 
   jint errorCode = vm->GetEnv((void **) &initEnv, JVMTI_VERSION_1_1);
@@ -166,5 +168,6 @@ Method Jvmti::toMethod(jmethodID methodId) {
   auto[name, signature] = getMethodNameAndSignature(methodId);
   uint32_t modifiers = getMethodModifiers(methodId);
 
-  return Method{getClassName(jni, declaringClass), name, signature, modifiers};
+  std::string className = Jni::invokeVirtual(declaringClass, "getName", jnisig("()Ljava/lang/String;"));
+  return Method{className, name, signature, modifiers};
 }

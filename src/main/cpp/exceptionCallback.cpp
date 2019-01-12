@@ -18,6 +18,7 @@ using fmt::literals::operator ""_format;
 
 static auto logger = getLogger("ExceptionCallback");
 
+//TODO: Add info about exception table, e.g. bci | catchBci | op // comments
 void printBytecode(jlocation location, const ConstPool &constPool, const CodeAttribute &codeAttribute) {
   InstructionPrintIterator iter(codeAttribute, constPool);
 
@@ -130,17 +131,13 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
                                jlocation catch_location) {
 
   try {
-//    int i = Jni::invokeVirtual<"I">();
-
+    Jvmti::ensureInit(jvmti);
+    Jni::ensureInit(jni);
     if (Jvmti::isMethodNative(method) || location == 0) { return; }
 
-//    logger->info("{}", 1, 2);
-
     jclass exceptionClass = jni->GetObjectClass(exception);
-    string exceptionClassName = getClassName(jni, exceptionClass);
-    string exceptionMessage = getExceptionMessage(jni, exception);
-
-    logger->trace("ExceptionCallback {}: {}", exceptionClassName, exceptionMessage);
+    string exceptionClassName = Jni::invokeVirtual(exceptionClass, "getName", jnisig("()Ljava/lang/String;"));
+    string exceptionMessage = Jni::getField(exception, "detailMessage", jnisig("Ljava/lang/String;"));
 
     if (exceptionClassName != "java.lang.NullPointerException") { return; }
 
@@ -149,9 +146,9 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
 
     auto [methodName, signature] = Jvmti::getMethodNameAndSignature(method);
     jclass declaringClass = Jvmti::getMethodDeclaringClass(method);
-    string declaringClassName = getClassName(jni, declaringClass);
+    string declaringClassName = Jni::invokeVirtual(declaringClass, "getName", jnisig("()Ljava/lang/String;"));
 
-    //JDK9 compiles implicit Objects.requireNonNull for indy/inner constructor - analyze method in previous frame instead
+    //JDK9+ compiles implicit Objects.requireNonNull for indy/inner constructor - analyze method in previous frame instead
     if (declaringClassName == "java.util.Objects" && methodName == "requireNonNull") {
       std::tie(method, location) = Jvmti::getFrameLocation(thread, 1);
       std::tie(methodName, signature) = Jvmti::getMethodNameAndSignature(method);
@@ -168,19 +165,7 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
     printBytecode(location, constPool, codeAttribute);
 
     std::string exceptionDetail = describeNPEInstruction(Jvmti::toMethod(method), constPool, codeAttribute, localVariables, location);
-
-    //TODO: JNI invoke
-    /*
-     * Jni::putField(jobject, fieldName, fieldDesc, T value)
-     * compute type T from fieldDesc
-     * map jni <-> c++ type
-     * e.g.
-     * Jni::putField(obj, "someField", "Ljava/lang/String;", std::string_view str) -> SetObjectField
-     */
-    jstring detailMessage = jni->NewStringUTF(exceptionDetail.c_str());
-    jfieldID detailMessageField = jni->GetFieldID(exceptionClass, "detailMessage", "Ljava/lang/String;");
-    jni->SetObjectField(exception, detailMessageField, detailMessage);
-    jni->DeleteLocalRef(detailMessage);
+    Jni::putField(exception, "detailMessage", jnisig("Ljava/lang/String;"), exceptionDetail);
 
     printMethodParams(thread);
   } catch (const std::exception &e) {

@@ -5,6 +5,7 @@
 #include <spdlog.h>
 #include <fmt/fmt.h>
 #include "jni.h"
+#include "exceptions.h"
 #include "typestring.hh"
 #include "assert.h"
 #include "util.h"
@@ -44,44 +45,6 @@ public:
 enum class Type {
   InvalidType, IntType, LongType, FloatType, DoubleType, CharType, ByteType, ShortType, BoolType, VoidType, StringType, ObjectType
 };
-//
-//template<Type... Args>
-//struct ParamsPack {
-//  static constexpr Type args[sizeof...(Args)] = {Args...};
-//  static constexpr size_t argc = sizeof...(Args);
-//};
-//
-//template<Type RetType, Type... Args>
-//struct ComputedTypesPack : ParamsPack<Args...> {
-//  static constexpr Type retType = RetType;
-//};
-//
-//Map terminal types to enum for later processing
-//template<char... ObjType>
-//constexpr auto typeOf(typestring<ObjType...>) {
-//  if(std::is_same_v<typestring_is("Ljava/lang/String;"), typestring<ObjType...>>) {
-//    return Type::StringType;
-//  } else {
-//    return Type::ObjectType;
-//  }
-//}
-//
-
-constexpr auto typeOf(string_view typeString) {
-  if (typeString[0] != 'L') {
-    THROW("Class signature doesn't start with L")
-  }
-  if (typeString.back() != ';') {
-    THROW("Class signature doesn't end with ;")
-  }
-  //From c++20 use starts_with
-  if (typeString == "Ljava/lang/String;") {
-    return Type::StringType;
-  } else {
-//    THROW("ObjectType")
-    return Type::ObjectType;
-  }
-}
 
 constexpr auto typeOf(char typeChar) {
   switch (typeChar) {
@@ -105,95 +68,38 @@ constexpr auto typeOf(char typeChar) {
       return Type::VoidType;
     case '\0':
       THROW("typeChar is NUL")
-      assert(false);
     case ')':
       THROW("typeChar is ')'")
-      assert(false);
     case 'L':
       THROW("typeChar is 'L'")
-      assert(false);
     default:
       THROW("typeChar is something")
-      assert(false);
   }
 }
-//
-//// Terminal patterns, read return type and finish
-//template<Type... Args, char... RetString>
-//constexpr auto parseSignature(ParamsPack<Args...>, typestring<')'>, typestring<RetString>...) {
-//  return ComputedTypesPack<typeOf(typestring<RetString...>()), Args...>();
-//}
-//
-//template<Type... Args, char RetChar>
-//constexpr auto parseSignature(ParamsPack<Args...>, typestring<')'>, typestring<RetChar>) {
-//  return ComputedTypesPack<typeOf(RetChar), Args...>();
-//}
-//
-//// State functions for constructing object type signature "Lfoo/Bar;" to a single typestring that we can match
-//template<Type... Args, char... Head, char... Tail>
-//constexpr auto parseSignatureObjState(ParamsPack<Args...>, typestring<Head...>, typestring<';'>, typestring<Tail>...) {
-//  return parseSignature(ParamsPack<Args..., typeOf(typestring<Head..., ';'>())>(), typestring<Tail>()...);
-//}
-//
-//template<Type... Args, char... Head, char Current, char... Tail>
-//constexpr auto parseSignatureObjState(ParamsPack<Args...>, typestring<Head...>, typestring<Current>, typestring<Tail>...) {
-//  return parseSignatureObjState(ParamsPack<Args...>(), typestring<Head..., Current>(), typestring<Tail>()...);
-//}
-//
-//template<Type... Args, char... Tail>
-//constexpr auto parseSignature(ParamsPack<Args...>, typestring<'L'>, typestring<Tail>...) {
-//  return parseSignatureObjState(ParamsPack<Args...>(), typestring<'L'>(), typestring<Tail>()...);
-//}
-//
-//// Single char param type parsing
-//template<Type... Args, char TypeChar, std::enable_if_t<TypeChar != 'L', int> = 0, char... Tail>
-//constexpr auto parseSignature(ParamsPack<Args...>, typestring<TypeChar>, typestring<Tail>...) {
-//  return parseSignature(ParamsPack<Args..., typeOf(TypeChar)>(), typestring<Tail>()...);
-//}
-//
-//// Split single typestring to its char elements and init empty param pack
-//template<char... Tail>
-//constexpr auto parseSignature(typestring<'(', Tail...>) {
-//  return parseSignature(ParamsPack<>(), typestring<Tail>()...);
-//}
 
-// Version3
-// We have the passed types, we could iterate over those and check against signature
-// instead of heavy template matching, use constexpr functions, figure out how
-// string_view is compile-time usable?
-
-template<typename T>
-struct TypeHolder {
-  using type = T;
-};
-
-template<Type t>
-constexpr auto fromEnum() {
-  if constexpr(t == Type::IntType) {
-    return int{};
-  } else if constexpr (t == Type::StringType) {
-    return std::string{};
+constexpr auto typeOf(string_view typeString) {
+  if (typeString.length() == 1) {
+    return typeOf(typeString[0]);
+  }
+  if (typeString[0] != 'L') {
+    THROW("Class signature doesn't start with L")
+  }
+  if (typeString.back() != ';') {
+    THROW("Class signature doesn't end with ;")
+  }
+  //From c++20 use starts_with
+  if (typeString == "Ljava/lang/String;") {
+    return Type::StringType;
   } else {
-    assert(false);
+    return Type::ObjectType;
   }
 }
 
-template<bool matches = false>
 struct UnexpectedType {
   void error(string_view message) {
   }
 
   constexpr UnexpectedType(string_view message, size_t idx) {
-//    if(idx == 0) {
-//      THROW("Error at parameter index 0")
-//    } else if(idx == 1) {
-//      THROW("Error at parameter index 1")
-//    } else if(idx == 2) {
-//      THROW("Error at parameter index 2")
-//    } else if(idx == 3) {
-//      THROW("Error at parameter index 3")
-//    }
-//    assert(matches);
     error("");
   }
 };
@@ -203,35 +109,84 @@ struct TypeChecker {
 
   constexpr static void check(SignatureChecker &context) {
     size_t idx = context.nextIndex();
-    Type t = context.types[idx];
+    Type t = context.getArgType(idx);
 
     if (t == Type::IntType) {
-      constexpr bool matches = std::is_same_v<int, DeclaredType>;
+      constexpr bool matches = std::is_same_v<int32_t, DeclaredType>;
       if constexpr (!matches)
-        UnexpectedType("Expected int at parameter index=", idx);
-    } else if (t == Type::StringType) {
-      constexpr bool matches = std::is_same_v<std::string, DeclaredType>;
-      if constexpr (!matches)
-        UnexpectedType("Expected std::string at parameter index=", idx);
+        UnexpectedType("Expected int32 at parameter index=", idx);
     } else if (t == Type::LongType) {
       constexpr bool matches = std::is_same_v<int64_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int64 at parameter index=", idx);
+    } else if (t == Type::ShortType) {
+      constexpr bool matches = std::is_same_v<int16_t, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected int16 at parameter index=", idx);
+    } else if (t == Type::CharType) {
+      constexpr bool matches = std::is_same_v<int16_t, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected int16 at parameter index=", idx);
+    } else if (t == Type::ByteType) {
+      constexpr bool matches = std::is_same_v<int8_t, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected int8 at parameter index=", idx);
+    } else if (t == Type::FloatType) {
+      constexpr bool matches = std::is_same_v<float, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected float at parameter index=", idx);
+    } else if (t == Type::DoubleType) {
+      constexpr bool matches = std::is_same_v<double, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected double at parameter index=", idx);
+    } else if (t == Type::BoolType) {
+      constexpr bool matches = std::is_same_v<bool, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected bool at parameter index=", idx);
+    } else if (t == Type::ObjectType) {
+      constexpr bool matches = std::is_same_v<jobject, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected jobject at parameter index=", idx);
+    } else if (t == Type::StringType) {
+      constexpr bool matches = std::is_same_v<std::string, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected std::string at parameter index=", idx);
     } else {
-      context.onError("Type not implemented yet");
+      THROW("Invalid type");
     }
-
-//    using ExpectedType = decltype(fromEnum(t));
-//    static_assert(std::is_same_v<ExpectedType, DeclaredType>);
   }
-
-//  template<Type T, typename >
-//  static void checkInternal(SignatureChecker &context) {
-//    static_assert(std::is_same_v<ExpectedType, DeclaredType>);
-//  }
 };
 
 using fmt::literals::operator ""_format;
+
+template<typename ArgType>
+struct FieldSignatureChecker {
+
+  const Type fieldType;
+
+  explicit constexpr FieldSignatureChecker(string_view signature) : fieldType(typeOf(signature)) {
+    TypeChecker<ArgType, FieldSignatureChecker>::check(*this);
+  }
+
+//  void onError(const char *message) {
+//    do {
+//      static_cast<void>(sizeof(message));
+//      assert(false);
+//    } while (false);
+//  }
+
+  constexpr size_t nextIndex() {
+    return 0;
+  }
+
+  constexpr Type getArgType(size_t idx) const {
+    return fieldType;
+  }
+
+  constexpr Type getFieldType() const {
+    return fieldType;
+  }
+};
 
 template<typename... ArgType>
 struct SignatureChecker {
@@ -258,20 +213,20 @@ struct SignatureChecker {
 
       if (typeChar == ')') {
         if (index != argc) {
-          onError("Signature specifies more arguments than passed to function");
+          THROW("Signature specifies more arguments than passed to function");
         }
         continue;
       }
 
       if (index == argc + 1) {
-        onError("Signature specifies more types than passed to function");
+        THROW("Signature specifies more types than passed to function");
       }
 
       if (parsingObject) {
         if (typeChar == ';') {
           Type type = typeOf(string_view(start, it - start));
           if (type == Type::InvalidType) {
-            onError("Unexpected character in signature");
+            THROW("Unexpected character in signature");
           }
           types[index++] = type;
           parsingObject = false;
@@ -287,7 +242,7 @@ struct SignatureChecker {
     }
 
     if (parsingObject) {
-      onError("Reached end of signature while reading object type from signature. Missing ';' somewhere?");
+      THROW("Reached end of signature while reading object type from signature. Missing ';' somewhere?");
     }
 
     for (auto checkFun : checkers) {
@@ -295,17 +250,16 @@ struct SignatureChecker {
     }
   }
 
-  template<auto... T>
-  void onError(const char *message) {
-    do {
-      static_cast<void>(sizeof(message));
-      assert(false);
-    } while (false);
-  }
+//  void onError(const char *message) {
+//    do {
+//      static_cast<void>(sizeof(message));
+//      assert(false);
+//    } while (false);
+//  }
 
   constexpr size_t nextIndex() {
     if (curIndex == argc) {
-      onError("Signature specifies more types than passed to function");
+      THROW("Signature specifies more types than passed to function");
     }
     return curIndex++;
   }
@@ -319,23 +273,12 @@ struct SignatureChecker {
   }
 };
 
-template<typename... ArgType>
-constexpr bool checkSignature(string_view signature) {
-  SignatureChecker<ArgType...>{signature};
-  return true;
-}
-
-template<typename... ArgType>
-constexpr bool checkSignature(SignatureChecker<ArgType...> checker) {
-  return true;
-}
-
 using std::string_view_literals::operator ""sv;
 using std::string_literals::operator ""s;
 #define jnisig(x) typestring_is(x){}
 
 class Jni {
-  inline static JNIEnv *jni = nullptr;
+  inline static thread_local JNIEnv *jni = nullptr;
   inline static std::shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
 
   template<class PassedType>
@@ -354,20 +297,96 @@ class Jni {
     return arg;
   }
 
-  template<>
-  static auto toNativeType<Type::StringType>(jstring arg) {
-    return jstringToString(jni, arg);
-  }
+//  template<>
+//  static auto toNativeType<Type::StringType>(jstring arg) {
+//    return jstringToString(jni, arg);
+//  }
 
 public:
 
-  static void init(JNIEnv *jniEnv) {
-    jni = jniEnv;
+  static void ensureInit(JNIEnv* tjni) {
+    jni = tjni;
+  }
+
+  static JNIEnv* getJni() {
+    return jni;
+  }
+
+  //TODO: putStatic, getStatic, invokeStatic, ARRAYS!!!(as args and return types)
+
+  template<char... Signature>
+  static auto getField(jobject object, string_view fieldName, typestring<Signature...> signature) {
+    jclass klass = jni->GetObjectClass(object);
+    checkJniException(jni);
+    jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr Type t = typeOf(signature.data());
+    if constexpr (t == Type::IntType) {
+      return jni->GetIntField(object, fieldId);
+    } else if constexpr (t == Type::LongType) {
+      return jni->GetLongField(object, fieldId);
+    } else if constexpr (t == Type::ShortType) {
+      return jni->GetShortField(object, fieldId);
+    } else if constexpr (t == Type::CharType) {
+      return jni->GetCharField(object, fieldId);
+    } else if constexpr (t == Type::ByteType) {
+      return jni->GetByteField(object, fieldId);
+    } else if constexpr (t == Type::FloatType) {
+      return jni->GetFloatField(object, fieldId);
+    } else if constexpr (t == Type::DoubleType) {
+      return jni->GetDoubleField(object, fieldId);
+    } else if constexpr (t == Type::StringType) {
+      return jstringToString(jni, (jstring) jni->GetObjectField(object, fieldId));
+    } else if constexpr (t == Type::ObjectType) {
+      return jni->GetObjectField(object, fieldId);
+    } else if constexpr (t == Type::BoolType) {
+      return jni->GetBooleanField(object, fieldId);
+    } else {
+      throw JniError("Unknown field type");
+    }
+  }
+
+  template<char... Signature, typename ArgType>
+  static void putField(jobject object, string_view fieldName, typestring<Signature...> signature, ArgType value) {
+    constexpr FieldSignatureChecker<ArgType> checker(signature.data());
+
+    jclass klass = jni->GetObjectClass(object);
+    checkJniException(jni);
+    jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr Type t = checker.getFieldType();
+    if constexpr (t == Type::IntType) {
+      jni->SetIntField(object, fieldId, value);
+    } else if constexpr (t == Type::LongType) {
+      jni->SetLongField(object, fieldId, value);
+    } else if constexpr (t == Type::ShortType) {
+      jni->SetShortField(object, fieldId, value);
+    } else if constexpr (t == Type::CharType) {
+      jni->SetCharField(object, fieldId, value);
+    } else if constexpr (t == Type::ByteType) {
+      jni->SetByteField(object, fieldId, value);
+    } else if constexpr (t == Type::FloatType) {
+      jni->SetFloatField(object, fieldId, value);
+    } else if constexpr (t == Type::DoubleType) {
+      jni->SetDoubleField(object, fieldId, value);
+    } else if constexpr (t == Type::StringType) {
+      jstring str = jni->NewStringUTF(value.data());
+      jni->SetObjectField(object, fieldId, str);
+      jni->DeleteLocalRef(str);
+    } else if constexpr (t == Type::ObjectType) {
+      jni->SetObjectField(object, fieldId, value);
+    } else if constexpr (t == Type::BoolType) {
+      jni->SetBooleanField(object, fieldId, value);
+    } else {
+      throw JniError("Unknown field type");
+    }
   }
 
   template<char... Signature, typename... ArgType>
   static auto invokeVirtual(jobject object, string_view methodName, typestring<Signature...> signature, ArgType... args) {
-    constexpr SignatureChecker<ArgType...> checker{signature.data()};
+    constexpr SignatureChecker<ArgType...> checker(signature.data());
 
     jclass klass = jni->GetObjectClass(object);
     checkJniException(jni);
@@ -375,9 +394,12 @@ public:
     checkJniException(jni);
 
     constexpr auto R = checker.getRetType();
+//    if(logger->should_log(spdlog::level::debug)) {
+//      std::string className = invokeVirtual(klass, "getName", jnisig("()Ljava/lang/String;"));
+//      logger->debug("Jni::invokeVirtual {}", signature.data());
+//    }
     if constexpr (R == Type::StringType) {
-      auto retVal = (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...);
-      return jstringToString(jni, retVal);
+      return jstringToString(jni, (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...));
     } else if constexpr (R == Type::IntType) {
       return jni->CallIntMethod(object, methodId, toJniType(args)...);
     } else if constexpr (R == Type::LongType) {
@@ -399,6 +421,8 @@ public:
     } else if constexpr (R == Type::VoidType) {
       jni->CallVoidMethod(object, methodId, toJniType(args)...);
       return false;
+    } else {
+      throw JniError("Unknown return type");
     }
   }
 

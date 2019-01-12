@@ -14,13 +14,11 @@ using std::vector;
 using std::pair;
 using std::shared_ptr;
 
-//TODO:Add mutex
 //TODO:Specialized error messages for each method?
 //TODO: split regular wrapped calls from ones returning compound types and additional transformation?
 class Jvmti {
 
-  inline static jvmtiEnv *env = nullptr;
-  inline static JNIEnv *jni = nullptr;
+  inline static thread_local jvmtiEnv *env = nullptr;
   inline static shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
 
   static void checkError(jvmtiError err) {
@@ -35,11 +33,14 @@ class Jvmti {
   }
 
   static void JNICALL vmInit(jvmtiEnv *jvmti_env, JNIEnv *jni_env, jthread thread) {
-    jni = jni_env;
-    Jni::init(jni_env);
+    logger->debug("VMInit");
   }
 
 public:
+
+  static void ensureInit(jvmtiEnv *tenv) {
+    env = tenv;
+  }
 
   static void init(JavaVM *vm);
 
@@ -72,5 +73,4 @@ public:
   static Method toMethod(jmethodID methodId);
 
   //endregion
-
 };

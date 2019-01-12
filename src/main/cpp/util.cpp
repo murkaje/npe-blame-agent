@@ -18,31 +18,34 @@ std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName) {
 
 static auto logger = getLogger("Util");
 
-//thread_local bool recursiveJniException = false;
-
-void checkJniException(JNIEnv *jni) {
+void checkJniException(JNIEnv *jni, bool tryPrint) {
   jthrowable exception = jni->ExceptionOccurred();
   if (exception == nullptr) { return; }
-/*
-  if (recursiveJniException) {
+
+  if (!tryPrint) {
     jni->ExceptionDescribe();
     jni->ExceptionClear();
-    recursiveJniException = false;
-    throw JniError("Error while getting class and message for wrapped JNI error throw");
+    throw JniError("");
   }
 
-  recursiveJniException = true;*/
-  logger->warn("JNI Exception");
-//  logger->warn("Exception toString: {}", objectToString(jni, exception));
-  jni->ExceptionDescribe();
   jni->ExceptionClear();
-  throw JniError("");
-/*  std::string exceptionClassName = getObjectClassName(jni, exception);
-  std::string exceptionMessage = getExceptionMessage(jni, exception);
-  jni->ExceptionClear();
-  recursiveJniException = false;
 
-  throw JniError(exceptionClassName + ": " + exceptionMessage);*/
+  jclass cls = jni->GetObjectClass(exception);
+  checkJniException(jni, false);
+  jclass jlClass = jni->FindClass("java/lang/Class");
+  checkJniException(jni, false);
+  jmethodID getNameId = jni->GetMethodID(jlClass, "getName", "()Ljava/lang/String;");
+  checkJniException(jni, false);
+  jstring className = (jstring) jni->CallObjectMethod(cls, getNameId);
+  checkJniException(jni, false);
+  jclass jlThrowable = jni->FindClass("java/lang/Throwable");
+  checkJniException(jni, false);
+  jmethodID getMessageId = jni->GetMethodID(jlThrowable, "getMessage", "()Ljava/lang/String;");
+  checkJniException(jni, false);
+  jstring exceptionMessage = (jstring) jni->CallObjectMethod(exception, getMessageId);
+  checkJniException(jni, false);
+
+  throw JniError(jstringToString(jni, className) + ": " + jstringToString(jni, exceptionMessage));
 }
 
 std::string jstringToString(JNIEnv *jni, jstring str) {
@@ -50,31 +53,29 @@ std::string jstringToString(JNIEnv *jni, jstring str) {
     return "";
   }
 
-  //Returns length without null terminator space
-  size_t stringByteLength = jni->GetStringUTFLength(str) + 1;
-  size_t stringLength = jni->GetStringLength(str);
+  const char *cstring = jni->GetStringUTFChars(str, nullptr);
+  checkJniException(jni);
 
-  char *cstring = new char[stringByteLength];
-  jni->GetStringUTFRegion(str, 0, (jsize) stringLength, cstring);
-  cstring[stringByteLength-1] = 0;
   std::string retval(cstring);
-  delete[] cstring;
+
+  jni->ReleaseStringUTFChars(str, cstring);
+  checkJniException(jni);
 
   return retval;
 }
 
 std::string objectToString(JNIEnv *jni, jobject obj) {
-  return Jni::invokeVirtual(obj, "toString", jnisig("()Ljava/lang/String;"));
-//  jclass cls = jni->GetObjectClass(obj);
-//  checkJniException(jni);
-//
-//  jmethodID toString = jni->GetMethodID(cls, "toString", "()Ljava/lang/String;");
-//  checkJniException(jni);
-//
-//  jstring str = (jstring) jni->CallObjectMethod(obj, toString);
-//  checkJniException(jni);
-//
-//  return jstringToString(jni, str);
+  jclass cls = jni->FindClass("java/lang/Object");
+  checkJniException(jni, false);
+
+  jmethodID toString = jni->GetMethodID(cls, "toString", "()Ljava/lang/String;");
+  if(toString == nullptr) throw JniError("No such method Object#toString");
+  checkJniException(jni, false);
+
+  jstring str = (jstring) jni->CallObjectMethod(obj, toString);
+  checkJniException(jni, false);
+
+  return jstringToString(jni, str);
 }
 
 std::string getObjectClassName(JNIEnv *jni, jobject obj) {
@@ -90,19 +91,11 @@ std::string getClassName(JNIEnv *jni, jclass cls) {
   jmethodID getNameID = jni->GetMethodID(javaLangClass, "getName", "()Ljava/lang/String;");
   checkJniException(jni);
 
-  jstring className;
-
-  className = (jstring) jni->CallObjectMethod(cls, getNameID);
-  try {
-    if (className == nullptr) {
-//      logger->warn("Failed to call java.lang.Class#getName on '{}'", objectToString(jni, cls));
-      logger->warn("Failed to call java.lang.Class#getName");
-    }
-    checkJniException(jni);
-  } catch (const std::exception &e) {
-    logger->warn("This is fucked up: {}", e.what());
-    jni->ExceptionClear();
+  jstring className = (jstring) jni->CallObjectMethod(cls, getNameID);
+  if (className == nullptr) {
+    logger->warn("Failed to call java.lang.Class#getName");
   }
+  checkJniException(jni);
 
   return jstringToString(jni, className);
 }
@@ -114,15 +107,8 @@ std::string getExceptionMessage(JNIEnv *jni, jobject exception) {
   jmethodID getMessageID = jni->GetMethodID(throwableClass, "getMessage", "()Ljava/lang/String;");
   checkJniException(jni);
 
-  jstring detailMessage;
-  detailMessage = (jstring) jni->CallObjectMethod(exception, getMessageID);
-
-  if(jni->ExceptionCheck()) {
-    jni->ExceptionDescribe();
-    jni->ExceptionClear();
-    logger->warn("This is fucked up");
-    return "";
-  }
+  jstring detailMessage = (jstring) jni->CallObjectMethod(exception, getMessageID);
+  checkJniException(jni);
 
   return jstringToString(jni, detailMessage);
 }

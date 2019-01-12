@@ -13,7 +13,7 @@
 
 std::shared_ptr<spdlog::logger> getLogger(std::string_view loggerName);
 
-void checkJniException(JNIEnv *jni);
+void checkJniException(JNIEnv *jni, bool tryPrint = true);
 
 std::string jstringToString(JNIEnv *jni, jstring str);
 

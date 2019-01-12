@@ -26,7 +26,6 @@ public:
     printedTrace = oss.str();
   }
 
-private:
   const char *what() const noexcept override {
     return printedTrace.c_str();
   }

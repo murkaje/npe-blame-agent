@@ -17,8 +17,6 @@ JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *reserved)
 }
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
-  Jvmti::init(vm);
-
   std::string opts = options == nullptr ? "" : std::string{options};
   if (opts == "debug") {
     spdlog::set_level(spdlog::level::debug);
@@ -27,7 +25,8 @@ JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
   }
 
   spdlog::set_pattern("%Y-%m-%d %T.%e %L [%n] %v");
-  logger->info("npe-blame-agent init");
+
+  Jvmti::init(vm);
 
   return JNI_OK;
 }
