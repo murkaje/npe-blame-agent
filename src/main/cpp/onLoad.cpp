@@ -6,7 +6,7 @@
 #include <backward.hpp>
 
 #include "util.h"
-#include "Jvmti.h"
+#include "api/Jvmti.h"
 
 static auto logger = getLogger("Boot");
 

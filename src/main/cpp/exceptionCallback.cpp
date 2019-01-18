@@ -9,8 +9,8 @@
 #include "bytecode/Method.h"
 #include "analyzer.h"
 #include "util.h"
-#include "Jvmti.h"
-#include "Jni.h"
+#include "api/Jvmti.h"
+#include "api/Jni.h"
 
 using std::string;
 using std::vector;
@@ -149,7 +149,7 @@ void JNICALL exceptionCallback(jvmtiEnv *jvmti,
     jclass declaringClass = Jvmti::getMethodDeclaringClass(method);
     string declaringClassName = Jni::invokeVirtual(declaringClass, "getName", jnisig("()Ljava/lang/String;"));
 
-    //JDK9+ compiles implicit Objects.requireNonNull for indy/inner constructor - analyze method in previous frame instead
+    //JDK9+ compiles implicit Objects.requireNonNull before indy/inner constructor - analyze method in previous frame instead
     if (declaringClassName == "java.util.Objects" && methodName == "requireNonNull") {
       std::tie(method, location) = Jvmti::getFrameLocation(thread, 1);
       std::tie(methodName, signature) = Jvmti::getMethodNameAndSignature(method);

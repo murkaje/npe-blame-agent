@@ -6,7 +6,7 @@
 #include <cstdarg>
 #include <jni.h>
 #include <jvmti.h>
-#include <logger.h>
+#include <spdlog.h>
 
 #include "bytecode/ConstPool.h"
 #include "bytecode/CodeAttribute.h"

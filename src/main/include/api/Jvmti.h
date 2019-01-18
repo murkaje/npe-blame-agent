@@ -5,21 +5,15 @@
 
 #include "exceptions.h"
 #include "util.h"
-#include "exceptionCallback.h"
 #include "bytecode/Method.h"
-#include "Jni.h"
-
-using std::string;
-using std::vector;
-using std::pair;
-using std::shared_ptr;
+#include "api/Jni.h"
 
 //TODO:Specialized error messages for each method?
 //TODO: split regular wrapped calls from ones returning compound types and additional transformation?
 class Jvmti {
 
   inline static thread_local jvmtiEnv *env = nullptr;
-  inline static shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
+  inline static std::shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
 
   static void checkError(jvmtiError err) {
     if (err != JVMTI_ERROR_NONE) {
@@ -48,17 +42,17 @@ public:
 
   static bool isMethodNative(jmethodID method);
 
-  static pair<jmethodID, uint16_t> getFrameLocation(jthread thread, unsigned int depth);
+  static std::pair<jmethodID, uint16_t> getFrameLocation(jthread thread, unsigned int depth);
 
   static jclass getMethodDeclaringClass(jmethodID method);
 
-  static vector<uint8_t> getBytecodes(jmethodID method);
+  static std::vector<uint8_t> getBytecodes(jmethodID method);
 
   static ConstPool getConstPool(jclass klass);
 
   static uint32_t getMethodModifiers(jmethodID methodId);
 
-  static pair<string, string> getMethodNameAndSignature(jmethodID methodId);
+  static std::pair<std::string, std::string> getMethodNameAndSignature(jmethodID methodId);
 
   static uint8_t getMethodArgumentsSize(jmethodID methodId);
 

@@ -65,7 +65,7 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
   }
 
   // For distant elements in stack, top moved 1 unit up
-  // The element copied by dup can be found 3 elements closer
+  // The element copied by dup_x2 can be found 3 elements closer
   if (opCode == OpCodes::DUP_X2) {
     if (stackExcess == 3) {
       return 3;
@@ -77,13 +77,13 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
   }
 
   // For distant elements in stack, top moved 2 units up
-  // The elements copied by dup can be found 2 elements closer
+  // The elements copied by dup2 can be found 2 elements closer
   if (opCode == OpCodes::DUP2) {
     return (stackExcess >= 2) ? 2 : 0;
   }
 
   // For distant elements in stack, top moved 2 units up
-  // The elements copied by dup can be found 3 elements closer
+  // The elements copied by dup2_x1 can be found 3 elements closer
   if (opCode == OpCodes::DUP2_X1) {
     if (stackExcess == 3 || stackExcess == 4) {
       return 3;
@@ -95,7 +95,7 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
   }
 
   // For distant elements in stack, top moved 2 units up
-  // The elements copied by dup can be found 4 elements closer
+  // The elements copied by dup2_x2 can be found 4 elements closer
   if (opCode == OpCodes::DUP2_X2) {
     if (stackExcess == 4 || stackExcess == 5) {
       return 4;

@@ -1,9 +1,8 @@
-target/
-
-cmake-build-*/
+/cmake-build-*/
+/build/
 
 CMakeCache.txt
-CMakeFiles
+CMakeFiles/
 CMakeScripts
 Testing
 Makefile

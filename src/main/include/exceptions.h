@@ -1,9 +1,9 @@
 #pragma once
 
-#include "backward.hpp"
 #include <exception>
 #include <string_view>
 #include <stdexcept>
+#include <backward.hpp>
 
 class ExceptionBase : public std::runtime_error {
   backward::StackTrace stackTrace;

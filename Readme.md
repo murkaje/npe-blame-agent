@@ -8,7 +8,7 @@ myVar.toLowerCase();
 ```
 
 The default java exception will not have a message,
-but with the help of this agent the following exception is produced
+but with the help of this agent the following exception message is produced
 ```
 java.lang.NullPointerException: Invoking java.lang.String#toLowerCase on null local variable myVar:java.lang.String
 	at ee.murkaje.GeneratedBase.generateNpeDebug(GeneratedBase.java:30)
@@ -19,15 +19,20 @@ java.lang.NullPointerException: Invoking java.lang.String#toLowerCase on null lo
 ```
 
 ### Building
-Make sure you have c++17 compliant compiler and c++ standard library(std::optional)  
-Optionally prepend CXX= to cmake to specify compiler
+Make sure you have a c++17 compliant compiler installed  
+Ensure JAVA_HOME environment variable points to a valid JDK installation  
 ```
-CXX=/usr/bin/clang++-5.0 cmake .
+mkdir build
+cd build
+CXX=clang++ cmake ..
 make
+
+-> build/libnpeblame.so | build/libnpeblame.dylib | build/npeblame.dll
 ```
+**⚠ Use Clang as GCC(,8.2] currently fails to compile. See example: https://godbolt.org/z/McehAm**
 
 ### Running
-Add `-agentpath:/path/to/npe-blame-agent/target/libnpeblame.so` to JVM options and run your application
+Add `-agentpath:/path/to/npe-blame-agent/build/libnpeblame.so` to JVM options and run your application
 
 ### Testing
 Integration tests available in https://github.com/murkaje/npe-blame-test

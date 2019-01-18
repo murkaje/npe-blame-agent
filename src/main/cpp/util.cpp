@@ -3,8 +3,9 @@
 #include <sstream>
 #include <spdlog.h>
 #include <fmt/fmt.h>
-#include <exceptions.h>
-#include <Jni.h>
+
+#include "exceptions.h"
+#include "api/Jni.h"
 
 using fmt::literals::operator ""_format;
 

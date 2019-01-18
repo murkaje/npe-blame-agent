@@ -2,9 +2,8 @@
 
 #include <vector>
 #include <cstdint>
-
-#include "jni.h"
-#include "jvmti.h"
+#include <jni.h>
+#include <jvmti.h>
 
 void JNICALL exceptionCallback(jvmtiEnv *jvmti,
                                JNIEnv *jni,

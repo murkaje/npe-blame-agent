@@ -2,16 +2,14 @@
 
 #include <string>
 #include <utility>
+#include <assert.h>
 #include <spdlog.h>
 #include <fmt/fmt.h>
-#include "jni.h"
-#include "exceptions.h"
-#include "typestring.hh"
-#include "assert.h"
-#include "util.h"
+#include <typestring.hh>
+#include <jni.h>
 
-using irqus::typestring;
-using std::string_view;
+#include "exceptions.h"
+#include "util.h"
 
 #define THROW(x) do { static_cast<void>(sizeof(x)); assert(false); } while(false);
 
@@ -57,7 +55,7 @@ constexpr Type typeOf(char typeChar) {
   }
 }
 
-constexpr TypeAndDim typeOf(string_view typeString) {
+constexpr TypeAndDim typeOf(std::string_view typeString) {
   uint8_t dim = 0;
   size_t pos = 0;
 
@@ -82,10 +80,10 @@ constexpr TypeAndDim typeOf(string_view typeString) {
 }
 
 struct UnexpectedType {
-  void error(string_view message) {
+  void error(std::string_view message) {
   }
 
-  constexpr UnexpectedType(string_view message, size_t idx) {
+  constexpr UnexpectedType(std::string_view message, size_t idx) {
     error("");
   }
 };
@@ -145,14 +143,12 @@ struct TypeChecker {
   }
 };
 
-using fmt::literals::operator ""_format;
-
 template<typename ArgType>
 struct FieldSignatureChecker {
 
   const TypeAndDim fieldType;
 
-  explicit constexpr FieldSignatureChecker(string_view signature) : fieldType(typeOf(signature)) {
+  explicit constexpr FieldSignatureChecker(std::string_view signature) : fieldType(typeOf(signature)) {
     TypeChecker<ArgType, FieldSignatureChecker>::check(*this);
   }
 
@@ -180,7 +176,7 @@ struct SignatureChecker {
   std::array<TypeAndDim, argc + 1> types = {};
   size_t curIndex = 0;
 
-  explicit constexpr SignatureChecker(string_view signature) {
+  explicit constexpr SignatureChecker(std::string_view signature) {
     auto it = signature.begin();
     auto start = it;
     bool parsingObject = false;
@@ -209,7 +205,7 @@ struct SignatureChecker {
 
       if (parsingObject) {
         if (typeChar == ';') {
-          TypeAndDim type = {typeOf(string_view(start, it - start)).type, arrayDim};
+          TypeAndDim type = {typeOf(std::string_view(start, it - start)).type, arrayDim};
           arrayDim = 0;
           types[index++] = type;
           parsingObject = false;
@@ -252,6 +248,7 @@ struct SignatureChecker {
 #define jnisig(x) typestring_is(x){}
 
 class Jni {
+
   inline static thread_local JNIEnv *jni = nullptr;
   inline static std::shared_ptr<spdlog::logger> logger = getLogger("JVMTI");
 
@@ -303,7 +300,7 @@ public:
   //TODO: new, invokespecial
 
   template<char... Signature>
-  static auto getStatic(jclass klass, string_view fieldName, typestring<Signature...> signature) {
+  static auto getStatic(jclass klass, std::string_view fieldName, irqus::typestring<Signature...> signature) {
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
@@ -336,7 +333,7 @@ public:
   }
 
   template<char... Signature, typename ArgType>
-  static void putStatic(jclass klass, string_view fieldName, typestring<Signature...> signature, ArgType value) {
+  static void putStatic(jclass klass, std::string_view fieldName, irqus::typestring<Signature...> signature, ArgType value) {
     constexpr FieldSignatureChecker<ArgType> checker(signature.data());
 
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
@@ -370,7 +367,7 @@ public:
   }
 
   template<char... Signature>
-  static auto getField(jobject object, string_view fieldName, typestring<Signature...> signature) {
+  static auto getField(jobject object, std::string_view fieldName, irqus::typestring<Signature...> signature) {
     jclass klass = jni->GetObjectClass(object);
     checkJniException(jni);
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
@@ -405,7 +402,7 @@ public:
   }
 
   template<char... Signature, typename ArgType>
-  static void putField(jobject object, string_view fieldName, typestring<Signature...> signature, ArgType value) {
+  static void putField(jobject object, std::string_view fieldName, irqus::typestring<Signature...> signature, ArgType value) {
     constexpr FieldSignatureChecker<ArgType> checker(signature.data());
 
     jclass klass = jni->GetObjectClass(object);
@@ -441,7 +438,7 @@ public:
   }
 
   template<char... Signature, typename... ArgType>
-  static auto invokeStatic(jclass klass, string_view methodName, typestring<Signature...> signature, ArgType... args) {
+  static auto invokeStatic(jclass klass, std::string_view methodName, irqus::typestring<Signature...> signature, ArgType... args) {
     constexpr SignatureChecker<ArgType...> checker(signature.data());
 
     jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
@@ -478,7 +475,7 @@ public:
   }
 
   template<char... Signature, typename... ArgType>
-  static auto invokeVirtual(jobject object, string_view methodName, typestring<Signature...> signature, ArgType... args) {
+  static auto invokeVirtual(jobject object, std::string_view methodName, irqus::typestring<Signature...> signature, ArgType... args) {
     constexpr SignatureChecker<ArgType...> checker(signature.data());
 
     jclass klass = jni->GetObjectClass(object);

@@ -1,8 +1,10 @@
-#include "Jvmti.h"
+#include "api/Jvmti.h"
 
 #include <util.h>
-#include <Jvmti.h>
-#include <Jni.h>
+#include <jvmti.h>
+#include <tuple>
+
+#include "api/Jni.h"
 
 
 void Jvmti::init(JavaVM *vm) {
@@ -51,7 +53,7 @@ bool Jvmti::isMethodNative(jmethodID method) {
   return isNative;
 }
 
-pair<jmethodID, uint16_t> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
+std::pair<jmethodID, uint16_t> Jvmti::getFrameLocation(jthread thread, unsigned int depth) {
   jmethodID methodId;
   jlocation location;
 
@@ -107,14 +109,14 @@ uint32_t Jvmti::getMethodModifiers(jmethodID methodId) {
   return static_cast<uint32_t>(modifiers);
 }
 
-pair<string, string> Jvmti::getMethodNameAndSignature(jmethodID methodId) {
+std::pair<std::string, std::string> Jvmti::getMethodNameAndSignature(jmethodID methodId) {
   char *methodName;
   char *methodSignature;
 
   jvmtiError err = env->GetMethodName(methodId, &methodName, &methodSignature, nullptr);
   checkError(err);
 
-  pair<string, string> nameAndSignature = {string{methodName}, string{methodSignature}};
+  std::pair<std::string, std::string> nameAndSignature = {std::string{methodName}, std::string{methodSignature}};
 
   err = env->Deallocate((uint8_t *) methodName);
   checkError(err);
@@ -169,5 +171,5 @@ Method Jvmti::toMethod(jmethodID methodId) {
   uint32_t modifiers = getMethodModifiers(methodId);
 
   std::string className = Jni::invokeVirtual(declaringClass, "getName", jnisig("()Ljava/lang/String;"));
-  return Method{className, name, signature, modifiers};
+  return Method(className, name, signature, modifiers);
 }
