@@ -13,40 +13,18 @@
 using irqus::typestring;
 using std::string_view;
 
-template<typename T, size_t MaxSize>
-class CompileTimeList {
-  constexpr static size_t capacity = MaxSize;
-  size_t curSize = 0;
-  T data[MaxSize] = {};
-
-public:
-  constexpr CompileTimeList() = default;
-
-  constexpr T &operator[](size_t index) { return data[index]; }
-
-  constexpr const T &operator[](size_t index) const { return data[index]; }
-
-  constexpr const T *begin() const { return data; }
-
-  constexpr const T *end() const { return data + curSize; }
-
-  constexpr T &back() { return data[curSize - 1]; }
-
-  constexpr size_t size() const { return size; }
-
-  constexpr void add(const T &val) {
-    curSize++;
-    back() = val;
-  }
-};
-
 #define THROW(x) do { static_cast<void>(sizeof(x)); assert(false); } while(false);
 
 enum class Type {
-  InvalidType, IntType, LongType, FloatType, DoubleType, CharType, ByteType, ShortType, BoolType, VoidType, StringType, ObjectType
+  IntType, LongType, FloatType, DoubleType, CharType, ByteType, ShortType, BoolType, VoidType, StringType, ObjectType
 };
 
-constexpr auto typeOf(char typeChar) {
+struct TypeAndDim {
+  Type type;
+  uint8_t dim;
+};
+
+constexpr Type typeOf(char typeChar) {
   switch (typeChar) {
     case 'I':
       return Type::IntType;
@@ -66,6 +44,8 @@ constexpr auto typeOf(char typeChar) {
       return Type::BoolType;
     case 'V':
       return Type::VoidType;
+    case '[':
+      THROW("typeChar is [")
     case '\0':
       THROW("typeChar is NUL")
     case ')':
@@ -77,9 +57,15 @@ constexpr auto typeOf(char typeChar) {
   }
 }
 
-constexpr auto typeOf(string_view typeString) {
+constexpr TypeAndDim typeOf(string_view typeString) {
+  uint8_t dim = 0;
+  size_t pos = 0;
+
+  while (typeString[pos++] == '[') dim++;
+  typeString = typeString.substr(pos - 1);
+
   if (typeString.length() == 1) {
-    return typeOf(typeString[0]);
+    return {typeOf(typeString[0]), dim};
   }
   if (typeString[0] != 'L') {
     THROW("Class signature doesn't start with L")
@@ -89,9 +75,9 @@ constexpr auto typeOf(string_view typeString) {
   }
   //From c++20 use starts_with
   if (typeString == "Ljava/lang/String;") {
-    return Type::StringType;
+    return {Type::StringType, dim};
   } else {
-    return Type::ObjectType;
+    return {Type::ObjectType, dim};
   }
 }
 
@@ -109,45 +95,47 @@ struct TypeChecker {
 
   constexpr static void check(SignatureChecker &context) {
     size_t idx = context.nextIndex();
-    Type t = context.getArgType(idx);
+    TypeAndDim t = context.getArgType(idx);
 
-    if (t == Type::IntType) {
+    assert(t.dim == 0);
+
+    if (t.type == Type::IntType) {
       constexpr bool matches = std::is_same_v<int32_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int32 at parameter index=", idx);
-    } else if (t == Type::LongType) {
+    } else if (t.type == Type::LongType) {
       constexpr bool matches = std::is_same_v<int64_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int64 at parameter index=", idx);
-    } else if (t == Type::ShortType) {
+    } else if (t.type == Type::ShortType) {
       constexpr bool matches = std::is_same_v<int16_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int16 at parameter index=", idx);
-    } else if (t == Type::CharType) {
+    } else if (t.type == Type::CharType) {
       constexpr bool matches = std::is_same_v<int16_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int16 at parameter index=", idx);
-    } else if (t == Type::ByteType) {
+    } else if (t.type == Type::ByteType) {
       constexpr bool matches = std::is_same_v<int8_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int8 at parameter index=", idx);
-    } else if (t == Type::FloatType) {
+    } else if (t.type == Type::FloatType) {
       constexpr bool matches = std::is_same_v<float, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected float at parameter index=", idx);
-    } else if (t == Type::DoubleType) {
+    } else if (t.type == Type::DoubleType) {
       constexpr bool matches = std::is_same_v<double, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected double at parameter index=", idx);
-    } else if (t == Type::BoolType) {
+    } else if (t.type == Type::BoolType) {
       constexpr bool matches = std::is_same_v<bool, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected bool at parameter index=", idx);
-    } else if (t == Type::ObjectType) {
+    } else if (t.type == Type::ObjectType) {
       constexpr bool matches = std::is_same_v<jobject, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected jobject at parameter index=", idx);
-    } else if (t == Type::StringType) {
+    } else if (t.type == Type::StringType) {
       constexpr bool matches = std::is_same_v<std::string_view, DeclaredType> || std::is_same_v<std::string, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected std::string or std::string_view at parameter index=", idx);
@@ -162,7 +150,7 @@ using fmt::literals::operator ""_format;
 template<typename ArgType>
 struct FieldSignatureChecker {
 
-  const Type fieldType;
+  const TypeAndDim fieldType;
 
   explicit constexpr FieldSignatureChecker(string_view signature) : fieldType(typeOf(signature)) {
     TypeChecker<ArgType, FieldSignatureChecker>::check(*this);
@@ -172,11 +160,11 @@ struct FieldSignatureChecker {
     return 0;
   }
 
-  constexpr Type getArgType(size_t idx) const {
+  constexpr TypeAndDim getArgType(size_t idx) const {
     return fieldType;
   }
 
-  constexpr Type getFieldType() const {
+  constexpr TypeAndDim getFieldType() const {
     return fieldType;
   }
 };
@@ -189,13 +177,14 @@ struct SignatureChecker {
   constexpr static size_t argc = sizeof...(ArgType);
   constexpr static ChekerFun checkers[argc]{&TypeChecker<ArgType, SignatureChecker>::check...};
 
-  CompileTimeList<Type, argc + 1> types;
+  std::array<TypeAndDim, argc + 1> types = {};
   size_t curIndex = 0;
 
   explicit constexpr SignatureChecker(string_view signature) {
     auto it = signature.begin();
     auto start = it;
     bool parsingObject = false;
+    uint8_t arrayDim = 0;
     size_t index = 0;
 
     assert(it != signature.end() && *it == '(');
@@ -220,10 +209,8 @@ struct SignatureChecker {
 
       if (parsingObject) {
         if (typeChar == ';') {
-          Type type = typeOf(string_view(start, it - start));
-          if (type == Type::InvalidType) {
-            THROW("Unexpected character in signature");
-          }
+          TypeAndDim type = {typeOf(string_view(start, it - start)).type, arrayDim};
+          arrayDim = 0;
           types[index++] = type;
           parsingObject = false;
         }
@@ -231,8 +218,11 @@ struct SignatureChecker {
         if (typeChar == 'L') {
           start = it - 1;
           parsingObject = true;
+        } else if (typeChar == '[') {
+          arrayDim++;
         } else {
-          types[index++] = typeOf(typeChar);
+          types[index++] = {typeOf(typeChar), arrayDim};
+          arrayDim = 0;
         }
       }
     }
@@ -247,17 +237,14 @@ struct SignatureChecker {
   }
 
   constexpr size_t nextIndex() {
-    if (curIndex == argc) {
-      THROW("Signature specifies more types than passed to function");
-    }
     return curIndex++;
   }
 
-  constexpr Type getArgType(size_t idx) const {
+  constexpr TypeAndDim getArgType(size_t idx) const {
     return types[idx];
   }
 
-  constexpr Type getRetType() const {
+  constexpr TypeAndDim getRetType() const {
     return types[argc];
   }
 };
@@ -270,16 +257,20 @@ class Jni {
 
   struct JString {
     jstring elem;
+
     JString() = default;
+
     JString(std::string_view str) {
       elem = jni->NewStringUTF(str.data());
       checkJniException(jni);
     }
+
     //Not trivial...
     ~JString() noexcept(false) {
       jni->DeleteLocalRef(elem);
       checkJniException(jni);
     }
+
     operator jstring() const {
       return elem;
     }
@@ -304,7 +295,7 @@ class Jni {
 
 public:
 
-  static void ensureInit(JNIEnv* tjni) {
+  static void ensureInit(JNIEnv *tjni) {
     jni = tjni;
   }
 
@@ -316,8 +307,9 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type fieldType = typeOf(signature.data());
+    constexpr Type fieldType = typeOf(signature.data()).type;
     JniScopedExceptionChecker beforeReturn;
+
     if constexpr (fieldType == Type::IntType) {
       return jni->GetStaticIntField(klass, fieldId);
     } else if constexpr (fieldType == Type::LongType) {
@@ -350,7 +342,7 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type fieldType = checker.getFieldType();
+    constexpr Type fieldType = checker.getFieldType().type;
     if constexpr (fieldType == Type::IntType) {
       jni->SetStaticIntField(klass, fieldId, value);
     } else if constexpr (fieldType == Type::LongType) {
@@ -384,8 +376,9 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type fieldType = typeOf(signature.data());
+    constexpr Type fieldType = typeOf(signature.data()).type;
     JniScopedExceptionChecker beforeReturn;
+
     if constexpr (fieldType == Type::IntType) {
       return jni->GetIntField(object, fieldId);
     } else if constexpr (fieldType == Type::LongType) {
@@ -420,7 +413,7 @@ public:
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type fieldType = checker.getFieldType();
+    constexpr Type fieldType = checker.getFieldType().type;
     if constexpr (fieldType == Type::IntType) {
       jni->SetIntField(object, fieldId, value);
     } else if constexpr (fieldType == Type::LongType) {
@@ -454,8 +447,9 @@ public:
     jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr auto retType = checker.getRetType();
+    constexpr Type retType = checker.getRetType().type;
     JniScopedExceptionChecker beforeReturn;
+
     if constexpr (retType == Type::StringType) {
       return jstringToString(jni, (jstring) jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...));
     } else if constexpr (retType == Type::IntType) {
@@ -492,8 +486,9 @@ public:
     jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr auto retType = checker.getRetType();
+    constexpr Type retType = checker.getRetType().type;
     JniScopedExceptionChecker beforeReturn;
+
     if constexpr (retType == Type::StringType) {
       return jstringToString(jni, (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...));
     } else if constexpr (retType == Type::IntType) {
@@ -536,5 +531,6 @@ public:
 //    std::string b = invokeVirtual(nullptr, "", jnisig("(Ljava/lang/ObjectIIJ)Ljava/lang/String"), nullptr, 1, 2, 3l);
     [[maybe_unused]]
     bool c = invokeStatic(nullptr, "", jnisig("(IIJLjava/lang/String;I)Z"), 1, 1, 3l, ""sv, 1);
+//    std::string d = invokeStatic(nullptr, "", jnisig("([[[I)Ljava/lang/String;"), (int[1][1][1]){{{1}}});
   }
 };
