@@ -264,6 +264,10 @@ namespace ArrayType {
   };
 }
 
+#ifdef _MSC_VER
+#undef STRICT
+#endif
+
 namespace Modifier {
   enum Modifier {
     PUBLIC = 0x0001,

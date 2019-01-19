@@ -535,6 +535,7 @@ public:
     return cls;
   }
 
+#ifndef _MSC_VER
   static void test() {
     using std::string_view_literals::operator ""sv;
 
@@ -546,4 +547,5 @@ public:
     bool c = invokeStatic(nullptr, "", jnisig("(IIJLjava/lang/String;I)Z"), 1, 1, 3l, ""sv, 1);
 //    std::string d = invokeStatic(nullptr, "", jnisig("([[[I)Ljava/lang/String;"), (int[1][1][1]){{{1}}});
   }
+#endif
 };

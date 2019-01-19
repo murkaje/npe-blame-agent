@@ -11,6 +11,7 @@
 class ExceptionBase : public std::runtime_error {
 
   static std::string getTraceString(std::string_view message) {
+#ifndef _MSC_VER
     backward::StackTrace stackTrace;
     stackTrace.load_here();
     stackTrace.skip_n_firsts(5);
@@ -25,6 +26,9 @@ class ExceptionBase : public std::runtime_error {
     printer.print(stackTrace, oss);
 
     return oss.str();
+#else
+    return std::string(message);
+#endif
   }
 
 public:
