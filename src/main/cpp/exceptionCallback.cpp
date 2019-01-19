@@ -1,10 +1,10 @@
 #include "exceptionCallback.h"
 
 #include <string>
+#include <sstream>
 #include <map>
 #include <iterator>
 #include <spdlog.h>
-#include <backward.hpp>
 
 #include "bytecode/Method.h"
 #include "analyzer.h"

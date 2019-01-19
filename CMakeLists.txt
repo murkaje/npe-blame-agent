@@ -3,20 +3,17 @@ project(npe-blame-agent)
 
 # Set c++ standard
 set(CMAKE_CXX_STANDARD 17)
-if(MSVC)
+if (MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
-endif(MSVC)
+endif (MSVC)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Common compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall")
-
-# Disable warning that shouldn't be a warning
+# Compiler flags
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-logical-op-parentheses")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-logical-op-parentheses")
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses")
-endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-parentheses")
+endif ()
 
 # Project configuration
 file(GLOB_RECURSE SOURCES src/main/cpp/*.cpp)
@@ -49,10 +46,14 @@ if ((NOT EXISTS ${SPDLOG_INCLUDE_DIR}) OR (NOT EXISTS ${BACKWARD_INCLUDE_DIR}))
   message("Init git submodule dependencies")
   execute_process(COMMAND git submodule update --init)
 endif ()
-include_directories(${SPDLOG_INCLUDE_DIR} ${BACKWARD_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/external)
+include_directories(${SPDLOG_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+if (NOT MSVC)
+  include_directories(${BACKWARD_INCLUDE_DIR})
+endif ()
 
 # Optional dependency on libdw for backward-cpp - shows stack traces with source snippets
-find_library (LIB_DW NAMES dw)
+find_library(LIB_DW NAMES dw)
 if (NOT LIB_DW)
   message("Optional dependency libdw (package libelf) not found")
 else ()

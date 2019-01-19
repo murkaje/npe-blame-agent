@@ -55,6 +55,17 @@ constexpr Type typeOf(char typeChar) {
   }
 }
 
+// Workaround msvc bug on comparing substr with start pos > 0 result
+#ifdef _MSC_VER
+constexpr bool operator==(std::string_view a, std::string_view b) {
+  if ((a.end() - a.begin()) != (b.end() - b.begin())) return false;
+  for (auto it1 = a.begin(), it2 = b.begin(); it1 != a.end(); it1++, it2++) {
+    if (*it1 != *it2) return false;
+  }
+  return true;
+}
+#endif
+
 constexpr TypeAndDim typeOf(std::string_view typeString) {
   uint8_t dim = 0;
   size_t pos = 0;
@@ -65,13 +76,14 @@ constexpr TypeAndDim typeOf(std::string_view typeString) {
   if (typeString.length() == 1) {
     return {typeOf(typeString[0]), dim};
   }
+
   if (typeString[0] != 'L') {
     THROW("Class signature doesn't start with L")
   }
   if (typeString.back() != ';') {
     THROW("Class signature doesn't end with ;")
   }
-  //From c++20 use starts_with
+
   if (typeString == "Ljava/lang/String;") {
     return {Type::StringType, dim};
   } else {
@@ -84,7 +96,11 @@ struct UnexpectedType {
   }
 
   constexpr UnexpectedType(std::string_view message, size_t idx) {
+#ifdef _MSC_VER
+    THROW("");
+#else
     error("");
+#endif
   }
 };
 
@@ -205,7 +221,7 @@ struct SignatureChecker {
 
       if (parsingObject) {
         if (typeChar == ';') {
-          TypeAndDim type = {typeOf(std::string_view(start, it - start)).type, arrayDim};
+          TypeAndDim type = {typeOf(std::string_view(&(*start), it - start)).type, arrayDim};
           arrayDim = 0;
           types[index++] = type;
           parsingObject = false;
@@ -227,8 +243,8 @@ struct SignatureChecker {
       THROW("Reached end of signature while reading object type. Missing ';' somewhere?");
     }
 
-    for (auto checkFun : checkers) {
-      checkFun(*this);
+    for (size_t i = 0; i < argc; i++) {
+      checkers[i](*this);
     }
   }
 

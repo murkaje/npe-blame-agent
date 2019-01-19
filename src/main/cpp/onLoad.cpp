@@ -3,7 +3,6 @@
 #include <fstream>
 #include <jvmti.h>
 #include <spdlog.h>
-#include <backward.hpp>
 
 #include "util.h"
 #include "api/Jvmti.h"

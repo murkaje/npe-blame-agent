@@ -12,6 +12,7 @@ compile_commands.json
 CTestTestfile.cmake
 *.cbp
 
-.idea/
+/.idea/
+/.vs/
 
 ideas.txt

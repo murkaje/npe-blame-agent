@@ -4,6 +4,7 @@
 #include <jvmti.h>
 #include <tuple>
 
+#include "exceptionCallback.h"
 #include "api/Jni.h"
 
 
