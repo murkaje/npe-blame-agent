@@ -94,7 +94,7 @@ ConstPool Jvmti::getConstPool(jclass klass) {
 
   jvmtiError err = env->GetConstantPool(klass, &cpCount, &cpByteSize, &constPoolBytes);
   checkError(err);
-  ConstPool constPool(std::vector(constPoolBytes, constPoolBytes + cpByteSize));
+  ConstPool constPool(std::vector<uint8_t>(constPoolBytes, constPoolBytes + cpByteSize));
   err = env->Deallocate(constPoolBytes);
   checkError(err);
 

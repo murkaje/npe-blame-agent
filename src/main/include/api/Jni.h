@@ -529,13 +529,19 @@ public:
     }
   }
 
+  template<char... Signature, typename... ArgType>
+  static auto invokeSpecial(jobject object, jclass clazz, std::string_view methodName, irqus::typestring<Signature...> signature, ArgType... args) {
+    // JVMS 6.5 invokespecial note: The invokespecial instruction was named invokenonvirtual prior to JDK release 1.0.2.
+  }
+
   static jclass getClass(jobject obj) {
     jclass cls = jni->GetObjectClass(obj);
     checkJniException(jni);
     return cls;
   }
 
-#ifndef _MSC_VER
+//#define COMPILE_TESTS
+#ifdef COMPILE_TESTS
   static void test() {
     using std::string_view_literals::operator ""sv;
 
@@ -547,5 +553,6 @@ public:
     bool c = invokeStatic(nullptr, "", jnisig("(IIJLjava/lang/String;I)Z"), 1, 1, 3l, ""sv, 1);
 //    std::string d = invokeStatic(nullptr, "", jnisig("([[[I)Ljava/lang/String;"), (int[1][1][1]){{{1}}});
   }
+
 #endif
 };

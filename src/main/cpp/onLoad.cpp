@@ -1,4 +1,4 @@
-#include <cstring>
+#include <string_view>
 #include <iostream>
 #include <fstream>
 #include <jvmti.h>
@@ -16,7 +16,7 @@ JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM *vm, char *options, void *reserved)
 }
 
 JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM *vm, char *options, void *reserved) {
-  std::string opts = options == nullptr ? "" : std::string{options};
+  std::string_view opts = options == nullptr ? "" : std::string(options);
   if (opts == "debug") {
     spdlog::set_level(spdlog::level::debug);
   } else if (opts == "trace") {
