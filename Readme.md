@@ -33,7 +33,7 @@ cd build
 CXX=clang++ cmake ..
 make
 
--> build/libnpeblame.so | build/libnpeblame.dylib | build/npeblame.dll
+-> target/libnpeblame.so | target/libnpeblame.dylib | target/npeblame.dll
 ```
 **⚠ On linux/MacOS use Clang instead of GCC(,8.2] due to a compiler bug. See example: https://godbolt.org/z/McehAm**
 
