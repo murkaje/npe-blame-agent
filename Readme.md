@@ -20,9 +20,9 @@ java.lang.NullPointerException: Invoking java.lang.String#toLowerCase on null lo
 
 ### Running
 Add agent to JVM options and run your application, it's that simple!  
-Linux: `-agentpath:/path/to/npe-blame-agent/build/libnpeblame.so`  
-Windows: `-agentpath:/path/to/npe-blame-agent/build/npeblame.dll`  
-MacOS: `-agentpath:/path/to/npe-blame-agent/build/libnpeblame.dylib`
+Linux: `-agentpath:/path/to/npe-blame-agent/target/libnpeblame.so`  
+Windows: `-agentpath:/path/to/npe-blame-agent/target/npeblame.dll`  
+MacOS: `-agentpath:/path/to/npe-blame-agent/target/libnpeblame.dylib`
 
 ### Building
 Make sure you have a c++17 compliant compiler installed  
