@@ -40,6 +40,8 @@ make
 ### Testing
 Integration tests available in https://github.com/murkaje/npe-blame-test
 
+☞ Checking the [test assertion messages](github.com/murkaje/npe-blame-test/blob/master/src/test/java/ee/murkaje/TestJavassistGenerated.java) gives a nice overview of code examples and resulting exception messages.
+
 ### Why is it useful?
 While the line number will usually be more than enough to track down where the null originated,
 method chaining on a single line will already be confusing and needs extra debugging.
