@@ -15,5 +15,5 @@ public:
   void addEntry(uint8_t slot, std::string_view name, std::string_view signature);
 
   //Bytecode manipulation tools may add local variables without altering LocalVariableTable
-  std::optional<const std::tuple<std::string_view, std::string_view>> getEntry(uint8_t slot) const;
+  std::optional<const std::tuple<std::string_view, std::string_view>> getEntry(uint16_t slot) const;
 };

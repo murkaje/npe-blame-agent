@@ -201,7 +201,7 @@ const uint8_t loadStoreSlotLookupTable[] = {
 /**
  * Get local variable slot for 1 byte load/store opcodes e.g. ALOAD_1 -> 1
  */
-uint8_t opcodeSlot(uint8_t opCode) {
+uint16_t opcodeSlot(uint8_t opCode) {
   if (opCode >= OpCodes::ILOAD_0 && opCode <= OpCodes::ASTORE_3) {
     uint8_t val = loadStoreSlotLookupTable[opCode];
     if (val != 9) { return val; }

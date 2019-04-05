@@ -9,6 +9,12 @@ using fmt::literals::operator ""_format;
 
 int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t off, int stackExcess) {
   uint8_t opCode = code.getOpcode(off);
+  if (opCode == OpCodes::WIDE) {
+    opCode = code.getOpcode(off + 1);
+    assert(opCode == OpCodes::IINC ||
+           opCode >= OpCodes::ILOAD && opCode <= OpCodes::ALOAD ||
+           opCode >= OpCodes::ISTORE && opCode <= OpCodes::ASTORE);
+  }
   int delta = Constants::OpCodeStackDelta[opCode];
 
   if (delta != -127 && delta != 127) { return delta; }
@@ -127,18 +133,28 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
     size_t off = instructions[--ins];
 
     int stackDelta = getStackDelta(code, constPool, off, stackExcess);
-    getLogger("Analyzer")->trace("Op: {}, delta: {}, excess: {}", Constants::OpcodeMnemonic[code.getOpcode(off)],
-                                 stackDelta, stackExcess);
+    uint8_t opCode = code.getOpcode(off);
+    bool wide = false;
+    if (opCode == OpCodes::WIDE) {
+      wide = true;
+      opCode = code.getOpcode(off + 1);
+    }
+
+    getLogger("Analyzer")->trace("Op: {}, delta: {}, excess: {}", Constants::OpcodeMnemonic[opCode], stackDelta, stackExcess);
     stackExcess -= stackDelta;
     if (stackExcess > 0 || stackExcess == 0 && stackDelta != 0) {
       continue;
     }
 
-    uint8_t opCode = code.getOpcode(off);
+
     if (opCode >= OpCodes::ILOAD && opCode <= OpCodes::ALOAD_3) {
-      uint8_t slot;
+      uint16_t slot;
       if (opCode <= OpCodes::ALOAD) {
-        slot = ByteVectorUtil::readuint8(code.getCode(), off + 1);
+        if (wide) {
+          slot = ByteVectorUtil::readuint16(code.getCode(), off + 2);
+        } else {
+          slot = ByteVectorUtil::readuint8(code.getCode(), off + 1);
+        }
       } else {
         slot = opcodeSlot(opCode);
       }
@@ -232,6 +248,9 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
     stackExcess = 0;
   } else if (op == OpCodes::ATHROW) {
     errorSource = "Throwing null ";
+    stackExcess = 0;
+  } else if (op == OpCodes::MONITORENTER || op == OpCodes::MONITOREXIT) {
+    errorSource = "Synchronizing on null ";
     stackExcess = 0;
   } else {
     return "[Unknown NPE cause] ";

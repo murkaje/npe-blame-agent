@@ -34,10 +34,11 @@ public:
 
   uint8_t getOpcode(size_t offset) const {
     //TODO:Check that byte at offset is opcode
+    //Do we allow handlers of wide to see opcode?
     return code[offset];
   }
 
-  uint8_t getInstructionLength(size_t offset);
+  uint8_t getInstructionLength(size_t offset) const;
 
   const std::vector<uint8_t> &getCode() const { return code; }
 

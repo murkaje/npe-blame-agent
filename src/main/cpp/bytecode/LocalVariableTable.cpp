@@ -2,7 +2,7 @@
 
 #include "util.h"
 
-std::optional<const std::tuple<std::string_view, std::string_view>> LocalVariableTable::getEntry(uint8_t slot) const {
+std::optional<const std::tuple<std::string_view, std::string_view>> LocalVariableTable::getEntry(uint16_t slot) const {
   if (auto entry = table.find(slot); entry != table.end()) {
     return entry->second;
   }

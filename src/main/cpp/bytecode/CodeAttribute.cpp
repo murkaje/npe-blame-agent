@@ -20,7 +20,7 @@ CodeAttribute::CodeAttribute(std::vector<uint8_t> code) : code(std::move(code)) 
 void CodeAttribute::init() {
   for (size_t pos = 0; pos < code.size();) {
     instructions.push_back(pos);
-    pos += Constants::InstructionLength[code[pos]];
+    pos += getInstructionLength(pos);
   }
 }
 
@@ -151,8 +151,17 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
     case OpCodes::GOTO_W:
     case OpCodes::JSR_W:
       return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
-    case OpCodes::WIDE:
-      //TODO
+    case OpCodes::WIDE: {
+      uint8_t wideOp = code[offset+1];
+      if (wideOp == OpCodes::IINC) {
+        return "{:<15} {}, {}"_format(
+            Constants::OpcodeMnemonic[wideOp],
+            ByteVectorUtil::readint16(code, offset + 2),
+            ByteVectorUtil::readint16(code, offset + 4));
+      } else {
+        return "{:<15} {}"_format(Constants::OpcodeMnemonic[wideOp], ByteVectorUtil::readint16(code, offset + 2));
+      }
+    }
     default:
       return "{:<15}"_format(Constants::OpcodeMnemonic[opcode]);
   }
@@ -163,22 +172,26 @@ std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
   return "{}: name={} type={}"_format(slot, name, desc);
 }
 
-uint8_t CodeAttribute::getInstructionLength(size_t offset) {
-  uint8_t opCode = getOpcode(offset);
+uint8_t CodeAttribute::getInstructionLength(size_t offset) const {
+  uint8_t opCode = code[offset];
   uint8_t len = Constants::InstructionLength[opCode];
   
   if(len != 0) return len;
   
   if(opCode == OpCodes::WIDE) {
     uint8_t wideOp = ByteVectorUtil::readuint8(code, offset + 1);
-
+    if (wideOp == OpCodes::IINC) {
+      return 6;
+    } else {
+      return 4;
+    }
   } else if(opCode == OpCodes::TABLESWITCH) {
 
   } else if(opCode == OpCodes::LOOKUPSWITCH) {
 
   }
 
-  throw std::invalid_argument("Unknown opcode {}"_format(opCode));
+  throw std::invalid_argument("TODO: Not implemented opcode {}"_format(opCode));
 }
 
 void InstructionPrintIterator::operator++(int) {
@@ -186,9 +199,7 @@ void InstructionPrintIterator::operator++(int) {
     throw std::out_of_range("Current offset: {}, bytecode length: {}"_format(offset, code.getSize()));
   }
 
-//  log.info(formatString("Offset before: %d", offset));
-  offset += Constants::InstructionLength[code.getOpcode(offset)];
-//  log.info(formatString("Offset after: %d", offset));
+  offset += code.getInstructionLength(offset);
 }
 
 std::string InstructionPrintIterator::operator*() const {
@@ -205,5 +216,5 @@ void InstructionIterator::operator++(int) {
     throw std::out_of_range("Current offset: {}, bytecode length: {}"_format(offset, code.getSize()));
   }
 
-  offset += Constants::InstructionLength[code.getOpcode(offset)];
+  offset += code.getInstructionLength(offset);
 }

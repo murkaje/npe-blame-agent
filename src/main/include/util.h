@@ -23,7 +23,7 @@ std::string toJavaTypeName(std::string_view jvmTypeName, size_t startPos = 0, si
 
 std::string parseMethodSignature(std::string_view signature, std::string_view methodName);
 
-uint8_t opcodeSlot(uint8_t opCode);
+uint16_t opcodeSlot(uint8_t opCode);
 
 //TODO: Extract to cpp
 class ByteVectorUtil {
