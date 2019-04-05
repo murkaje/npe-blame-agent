@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(npe-blame-agent)
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 # Set c++ standard
 set(CMAKE_CXX_STANDARD 17)
 if (MSVC)
@@ -65,4 +67,6 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   endif ()
 endif()
 
-target_link_libraries(${PROJECT_NAME} -lstdc++)
+message("Using CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+
+target_link_libraries(${PROJECT_NAME})

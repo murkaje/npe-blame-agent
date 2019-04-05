@@ -1,0 +1,43 @@
+language: cpp
+compiler:
+  - clang
+
+matrix:
+  include:
+    - os: linux
+    - os: osx
+      osx_image: xcode10.2
+      env: JAVA_HOME=$(/usr/libexec/java_home)
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - libstdc++-7-dev
+
+dist: xenial
+
+branches:
+  only:
+    - master
+    - /.*/
+
+script:
+  - mkdir build && pushd build && cmake .. && make VERBOSE=1 && popd
+
+before_deploy:
+  - |
+    ([ "$TRAVIS_OS_NAME" = "osx" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-macos.zip target/libnpeblame.dylib) ||
+    ([ "$TRAVIS_OS_NAME" = "linux" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-linux64.zip target/libnpeblame.so)
+
+deploy:
+  provider: releases
+  api_key: $GH_TOKEN
+  file_glob: true
+  file: target/*.zip
+  skip_cleanup: true
+  draft: true
+  on:
+    all_branches: true
+    tags: true
