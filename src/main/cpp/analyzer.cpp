@@ -2,8 +2,9 @@
 
 #include <string_view>
 
-#include "util.h"
 #include "bytecode/Field.h"
+#include "exceptions.h"
+#include "util.h"
 
 using fmt::literals::operator ""_format;
 
@@ -112,7 +113,7 @@ int getStackDelta(const CodeAttribute &code, const ConstPool &constPool, size_t 
     }
   }
 
-  throw std::invalid_argument(
+  throw InvalidArgument(
       "Unsupported opcode for calculating stack delta: {}"_format(Constants::OpcodeMnemonic[opCode]));
 }
 

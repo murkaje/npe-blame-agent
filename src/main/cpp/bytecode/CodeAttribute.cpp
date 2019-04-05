@@ -3,6 +3,7 @@
 #include <spdlog.h>
 #include <fmt/fmt.h>
 
+#include "exceptions.h"
 #include "util.h"
 
 using fmt::literals::operator""_format;
@@ -121,10 +122,10 @@ std::string CodeAttribute::printInstruction(const ConstPool &constPool, size_t o
       return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], ByteVectorUtil::readint16(code, offset + 1) + offset);
     case OpCodes::RET:
       return "{:<15} {}"_format(Constants::OpcodeMnemonic[opcode], code[offset + 1]);
-    case OpCodes::TABLESWITCH:
-      return "";  //TODO
-    case OpCodes::LOOKUPSWITCH:
-      return "";  //TODO
+//    case OpCodes::TABLESWITCH:
+//      return "";  //TODO
+//    case OpCodes::LOOKUPSWITCH:
+//      return "";  //TODO
     case OpCodes::GETSTATIC:       //Fieldref
     case OpCodes::PUTSTATIC:
     case OpCodes::GETFIELD:
@@ -175,23 +176,30 @@ std::string CodeAttribute::printLocalVariable(uint8_t slot) const {
 uint8_t CodeAttribute::getInstructionLength(size_t offset) const {
   uint8_t opCode = code[offset];
   uint8_t len = Constants::InstructionLength[opCode];
-  
-  if(len != 0) return len;
-  
-  if(opCode == OpCodes::WIDE) {
+
+  if (len != 0) return len;
+
+  if (opCode == OpCodes::WIDE) {
     uint8_t wideOp = ByteVectorUtil::readuint8(code, offset + 1);
     if (wideOp == OpCodes::IINC) {
       return 6;
     } else {
       return 4;
     }
-  } else if(opCode == OpCodes::TABLESWITCH) {
-
-  } else if(opCode == OpCodes::LOOKUPSWITCH) {
-
+  } else if (opCode == OpCodes::TABLESWITCH) {
+    size_t padding = 4 - (offset + 1) % 4;
+    int32_t lowValue = ByteVectorUtil::readint32(code, offset + 1 + padding + 4);
+    int32_t highValue = ByteVectorUtil::readint32(code, offset + 1 + padding + 8);
+    // opcode, 0-3 padding, u4 default, u4 low, u4 high, (high - low + 1) * 4 (u4 offset)
+    return 1 + padding + 4 + 4 + 4 + (highValue - lowValue + 1) * 4;
+  } else if (opCode == OpCodes::LOOKUPSWITCH) {
+    size_t padding = 4 - (offset + 1) % 4;
+    int32_t npairs = ByteVectorUtil::readint32(code, offset + 1 + padding + 4);
+    // opcode, 0-3 padding, u4 default, u4 npairs, npairs * 8(u4 key, u4 targetOffset)
+    return 1 + padding + 4 + 4 + 8 * npairs;
   }
 
-  throw std::invalid_argument("TODO: Not implemented opcode {}"_format(opCode));
+  throw InvalidArgument("TODO: Not implemented opcode {}"_format(opCode));
 }
 
 void InstructionPrintIterator::operator++(int) {

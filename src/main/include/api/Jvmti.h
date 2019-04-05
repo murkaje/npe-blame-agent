@@ -29,7 +29,7 @@ class Jvmti {
   }
 
   static void JNICALL vmInit(jvmtiEnv *jvmti_env, JNIEnv *jni_env, jthread thread) {
-    logger->debug("VMInit");
+    logger->debug("VMInit\n");
   }
 
 public:

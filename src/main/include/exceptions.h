@@ -44,3 +44,7 @@ class JvmtiError : public ExceptionBase {
 class JniError : public ExceptionBase {
   using ExceptionBase::ExceptionBase;
 };
+
+class InvalidArgument : public ExceptionBase {
+  using ExceptionBase::ExceptionBase;
+};

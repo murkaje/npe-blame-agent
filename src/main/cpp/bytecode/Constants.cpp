@@ -421,11 +421,11 @@ const int Constants::OpCodeStackDelta[] = {
     -2, /* 164 IF_ICMPLE */
     -2, /* 165 IF_ACMPEQ */
     -2, /* 166 IF_ACMPNE */
-    -127, /* 167 GOTO */
+    0, /* 167 GOTO */
     -127, /* 168 JSR */
     -127, /* 169 RET */
-    -127, /* 170 TABLESWITCH */
-    -127, /* 171 LOOKUPSWITCH */
+    -1, /* 170 TABLESWITCH */
+    -1, /* 171 LOOKUPSWITCH */
     -127, /* 172 IRETURN */
     -127, /* 173 LRETURN */
     -127, /* 174 FRETURN */
