@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.com/murkaje/npe-blame-agent.svg?branch=master)](https://travis-ci.com/murkaje/npe-blame-agent)
 ### What is this?
 A simple agent for the JVM that will provide hopefully helpful messages to otherwise empty NullPointerExceptions
 
