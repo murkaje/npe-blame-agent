@@ -113,8 +113,8 @@ void printMethodParams(jthread thread) {
     for (uint8_t slot = 0; slot < paramSlots; slot++) {
       if (auto optLocalVar = variables.getEntry(slot); optLocalVar.has_value()) {
         auto[name, type] = *optLocalVar;
-        oss << name << "=" << "TODO" << ", ";
-        if (type == "long" || type == "double") slot++;
+        oss << name << "=" << Jvmti::localVariableToString(thread, depth, slot, type) << ", ";
+        if (type == "J" || type == "D") slot++;
       }
     }
     logger->trace("{}.{} args: [{}]", method.getClassName(), method.getMethodName(), oss.str());

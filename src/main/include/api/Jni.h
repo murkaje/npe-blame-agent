@@ -111,9 +111,11 @@ struct TypeChecker {
     size_t idx = context.nextIndex();
     TypeAndDim t = context.getArgType(idx);
 
-    assert(t.dim == 0);
-
-    if (t.type == Type::IntType) {
+    if (t.dim != 0 || t.type == Type::ObjectType) {
+      constexpr bool matches = std::is_same_v<jobject, DeclaredType>;
+      if constexpr (!matches)
+        UnexpectedType("Expected jobject at parameter index=", idx);
+    } else if (t.type == Type::IntType) {
       constexpr bool matches = std::is_same_v<int32_t, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected int32 at parameter index=", idx);
@@ -145,10 +147,6 @@ struct TypeChecker {
       constexpr bool matches = std::is_same_v<bool, DeclaredType>;
       if constexpr (!matches)
         UnexpectedType("Expected bool at parameter index=", idx);
-    } else if (t.type == Type::ObjectType) {
-      constexpr bool matches = std::is_same_v<jobject, DeclaredType>;
-      if constexpr (!matches)
-        UnexpectedType("Expected jobject at parameter index=", idx);
     } else if (t.type == Type::StringType) {
       constexpr bool matches = std::is_same_v<std::string_view, DeclaredType> || std::is_same_v<std::string, DeclaredType>;
       if constexpr (!matches)
@@ -312,6 +310,17 @@ public:
     jni = tjni;
   }
 
+  static jclass getClass(std::string_view className) {
+    jclass clazz = jni->FindClass(className.data());
+    checkJniException(jni);
+    return clazz;
+  }
+
+  static void deleteLocalRef(jobject ref) {
+    jni->DeleteLocalRef(ref);
+    checkJniException(jni);
+  }
+
   //TODO: arrays, e.g. invokeVirtual(obj, method, ([B)V, (std::vector<char>? char[]?))
   //TODO: new, invokespecial
 
@@ -388,6 +397,7 @@ public:
     checkJniException(jni);
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
+    jni->DeleteLocalRef(klass);
 
     constexpr Type fieldType = typeOf(signature.data()).type;
     JniScopedExceptionChecker beforeReturn;
@@ -425,6 +435,7 @@ public:
     checkJniException(jni);
     jfieldID fieldId = jni->GetFieldID(klass, fieldName.data(), signature.data());
     checkJniException(jni);
+    jni->DeleteLocalRef(klass);
 
     constexpr Type fieldType = checker.getFieldType().type;
     if constexpr (fieldType == Type::IntType) {
@@ -457,33 +468,36 @@ public:
   static auto invokeStatic(jclass klass, std::string_view methodName, irqus::typestring<Signature...> signature, ArgType... args) {
     constexpr SignatureChecker<ArgType...> checker(signature.data());
 
-    jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
+    jmethodID methodId = jni->GetStaticMethodID(klass, methodName.data(), signature.data());
     checkJniException(jni);
 
-    constexpr Type retType = checker.getRetType().type;
+    constexpr TypeAndDim retType = checker.getRetType();
     JniScopedExceptionChecker beforeReturn;
 
-    if constexpr (retType == Type::StringType) {
-      return jstringToString(jni, (jstring) jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...));
-    } else if constexpr (retType == Type::IntType) {
-      return jni->CallStaticIntMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::LongType) {
-      return jni->CallStaticLongMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::ShortType) {
-      return jni->CallStaticShortMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::CharType) {
-      return jni->CallStaticCharMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::ByteType) {
-      return jni->CallStaticByteMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::FloatType) {
-      return jni->CallStaticFloatMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::DoubleType) {
-      return jni->CallStaticDoubleMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::ObjectType) {
+    if constexpr (retType.dim != 0 || retType.type == Type::ObjectType) {
       return jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::BoolType) {
+    } else if constexpr (retType.type == Type::StringType) {
+      jstring javaString = (jstring) jni->CallStaticObjectMethod(klass, methodId, toJniType(args)...);
+      std::string result = jstringToString(jni, javaString);
+      jni->DeleteLocalRef(javaString);
+      return result;
+    } else if constexpr (retType.type == Type::IntType) {
+      return jni->CallStaticIntMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::LongType) {
+      return jni->CallStaticLongMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::ShortType) {
+      return jni->CallStaticShortMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::CharType) {
+      return jni->CallStaticCharMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::ByteType) {
+      return jni->CallStaticByteMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::FloatType) {
+      return jni->CallStaticFloatMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::DoubleType) {
+      return jni->CallStaticDoubleMethod(klass, methodId, toJniType(args)...);
+    } else if constexpr (retType.type == Type::BoolType) {
       return jni->CallStaticBooleanMethod(klass, methodId, toJniType(args)...);
-    } else if constexpr (retType == Type::VoidType) {
+    } else if constexpr (retType.type == Type::VoidType) {
       jni->CallStaticVoidMethod(klass, methodId, toJniType(args)...);
     } else {
       throw JniError("Unknown return type");
@@ -498,12 +512,16 @@ public:
     checkJniException(jni);
     jmethodID methodId = jni->GetMethodID(klass, methodName.data(), signature.data());
     checkJniException(jni);
+    jni->DeleteLocalRef(klass);
 
     constexpr Type retType = checker.getRetType().type;
     JniScopedExceptionChecker beforeReturn;
 
     if constexpr (retType == Type::StringType) {
-      return jstringToString(jni, (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...));
+      jstring javaString = (jstring) jni->CallObjectMethod(object, methodId, toJniType(args)...);
+      std::string result = jstringToString(jni, javaString);
+      jni->DeleteLocalRef(javaString);
+      return result;
     } else if constexpr (retType == Type::IntType) {
       return jni->CallIntMethod(object, methodId, toJniType(args)...);
     } else if constexpr (retType == Type::LongType) {
@@ -532,6 +550,42 @@ public:
   template<char... Signature, typename... ArgType>
   static auto invokeSpecial(jobject object, jclass clazz, std::string_view methodName, irqus::typestring<Signature...> signature, ArgType... args) {
     // JVMS 6.5 invokespecial note: The invokespecial instruction was named invokenonvirtual prior to JDK release 1.0.2.
+    constexpr SignatureChecker<ArgType...> checker(signature.data());
+
+    jmethodID methodId = jni->GetMethodID(clazz, methodName.data(), signature.data());
+    checkJniException(jni);
+
+    constexpr Type retType = checker.getRetType().type;
+    JniScopedExceptionChecker beforeReturn;
+
+    if constexpr (retType == Type::StringType) {
+      jstring javaString = (jstring) jni->CallNonvirtualObjectMethod(object, clazz, methodId, toJniType(args)...);
+      std::string result = jstringToString(jni, javaString);
+      jni->DeleteLocalRef(javaString);
+      return result;
+    } else if constexpr (retType == Type::IntType) {
+      return jni->CallNonvirtualIntMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::LongType) {
+      return jni->CallNonvirtualLongMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ShortType) {
+      return jni->CallNonvirtualShortMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::CharType) {
+      return jni->CallNonvirtualCharMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ByteType) {
+      return jni->CallNonvirtualByteMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::FloatType) {
+      return jni->CallNonvirtualFloatMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::DoubleType) {
+      return jni->CallNonvirtualDoubleMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::ObjectType) {
+      return jni->CallNonvirtualObjectMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::BoolType) {
+      return jni->CallNonvirtualBooleanMethod(object, clazz, methodId, toJniType(args)...);
+    } else if constexpr (retType == Type::VoidType) {
+      jni->CallNonvirtualVoidMethod(object, clazz, methodId, toJniType(args)...);
+    } else {
+      throw JniError("Unknown return type");
+    }
   }
 
   static jclass getClass(jobject obj) {
