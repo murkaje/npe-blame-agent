@@ -61,14 +61,14 @@ public:
   static LocalVariableTable getLocalVariableTable(jmethodID methodId);
 
   static int32_t getLocalInt(jthread thread, uint16_t depth, uint8_t slot) {
-    int32_t value;
+    jint value;
     jvmtiError err = env->GetLocalInt(thread, depth, slot, &value);
     checkError(err);
     return value;
   }
 
   static int64_t getLocalLong(jthread thread, uint16_t depth, uint8_t slot) {
-    int64_t value;
+    jlong value;
     jvmtiError err = env->GetLocalLong(thread, depth, slot, &value);
     checkError(err);
     return value;
