@@ -1,35 +1,87 @@
 language: cpp
-compiler:
-  - clang
 
-matrix:
-  include:
-    - os: linux
-    - os: osx
-      osx_image: xcode10.2
-      env: JAVA_HOME=$(/usr/libexec/java_home)
+linux-template: &linux-template
+  os: linux
+  compiler: clang
+  dist: xenial
+  cache:
+    - $HOME/.m2/repository
+  addons:
+    apt:
+      sources:
+        - ubuntu-toolchain-r-test
+      packages:
+        - libstdc++-7-dev
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - libstdc++-7-dev
+osx-template: &osx-template
+  os: osx
+  compiler: clang
+  osx_image: xcode10.2
+  env: JAVA_HOME=$(/usr/libexec/java_home)
+  cache:
+    - $HOME/.m2/repository
 
-dist: xenial
+windows-template: &windows-template
+  os: windows
+  env: CMAKE_EXTRA_ARGS="-DCMAKE_GENERATOR_PLATFORM=x64"
+  cache:
+    - $HOME/.m2/repository
+    - /c/jdk
+    - /c/maven
 
 branches:
   only:
     - master
     - /.*/
 
-script:
-  - mkdir build && pushd build && cmake .. && make VERBOSE=1 && popd
+before_install:
+  - |
+    if [ "$TRAVIS_OS_NAME" = "windows" ]; then
+      export JAVA_HOME=/c/jdk/jdk-12.0.2/
+      export M2_HOME=/c/maven/apache-maven-3.6.1/
+      export PATH=$M2_HOME/bin:$PATH
+      if [ ! -d /c/jdk/ ]; then
+        mkdir /c/jdk
+        pushd /c/jdk/
+        curl -o jdk.zip https://download.java.net/java/GA/jdk12.0.2/e482c34c86bd4bf8b56c0b35558996b9/10/GPL/openjdk-12.0.2_windows-x64_bin.zip && 7z x jdk.zip
+        $JAVA_HOME/bin/java -version
+        popd
+      fi
+      if [ ! -d $M2_HOME/bin ]; then
+        mkdir /c/maven
+        pushd /c/maven/
+        curl -o maven.zip https://www-us.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.zip && 7z x maven.zip
+        mvn -version
+        popd
+      fi
+    fi
+
+matrix:
+  include:
+    - <<: *linux-template
+    - <<: *osx-template
+    - <<: *windows-template
+
+script: &build-test
+#build
+  - mkdir build
+  - pushd build
+  - cmake "$CMAKE_EXTRA_ARGS" ..
+  - cmake --build .
+  - ([ "$TRAVIS_OS_NAME" != "windows" ] || (mkdir ../target && cp */npeblame.dll ../target/npeblame.dll))
+  - popd
+#test
+  - pushd ..
+  - git clone --depth=1 --branch=master https://github.com/murkaje/npe-blame-test.git npe-blame-test
+  - cd npe-blame-test
+  - mvn test
+  - popd
 
 before_deploy:
   - |
     ([ "$TRAVIS_OS_NAME" = "osx" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-macos.zip target/libnpeblame.dylib) ||
-    ([ "$TRAVIS_OS_NAME" = "linux" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-linux64.zip target/libnpeblame.so)
+    ([ "$TRAVIS_OS_NAME" = "linux" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-linux64.zip target/libnpeblame.so) ||
+    ([ "$TRAVIS_OS_NAME" = "windows" ] && zip -mj target/npe-blame-${TRAVIS_TAG}-win64.zip target/npeblame.dll)
 
 deploy:
   provider: releases
