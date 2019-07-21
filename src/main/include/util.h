@@ -93,7 +93,10 @@ public:
                     ((uint32_t) vec[pos + 1] << 16) |
                     ((uint32_t) vec[pos + 2] << 8) |
                     vec[pos + 3];
-    return reinterpret_cast<const float &>(data);
+    static_assert(sizeof(float) == sizeof(uint32_t));
+    float ret;
+    std::memcpy(&ret, &data, sizeof(float));
+    return ret;
   }
 
   static double readdouble(const std::vector<uint8_t> &vec, size_t pos) {
@@ -105,6 +108,9 @@ public:
                     ((uint64_t) vec[pos + 5] << 16) |
                     ((uint64_t) vec[pos + 6] << 8) |
                     vec[pos + 7];
-    return reinterpret_cast<const double &>(data);
+    static_assert(sizeof(double) == sizeof(uint64_t));
+    double ret;
+    std::memcpy(&ret, &data, sizeof(double));
+    return ret;
   }
 };

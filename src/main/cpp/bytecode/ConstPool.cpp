@@ -150,7 +150,7 @@ std::unique_ptr<ConstInfo> ConstInfo::read(const std::vector<uint8_t> &constPool
 }
 
 std::unique_ptr<ConstInfo> UTF8Info::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t utflen = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
+  uint16_t utflen = ByteVectorUtil::readuint16(constPoolBytes, offset);
   offset += 2;
 
   std::string utf8String((const char *) &constPoolBytes[offset], utflen);
@@ -160,91 +160,74 @@ std::unique_ptr<ConstInfo> UTF8Info::read(const std::vector<uint8_t> &constPoolB
 }
 
 std::unique_ptr<ConstInfo> IntegerInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  int32_t value = (constPoolBytes[offset] << 24) | (constPoolBytes[offset + 1] << 16) | (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  int32_t value = ByteVectorUtil::readint32(constPoolBytes, offset);
   offset += 4;
 
   return std::make_unique<IntegerInfo>(value, index);
 }
 
 std::unique_ptr<ConstInfo> FloatInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint32_t data = (constPoolBytes[offset] << 24) | (constPoolBytes[offset + 1] << 16) | (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  float value = ByteVectorUtil::readfloat(constPoolBytes, offset);
   offset += 4;
-  float value = static_cast<float>(data);
 
   return std::make_unique<FloatInfo>(value, index);
 }
 
 std::unique_ptr<ConstInfo> LongInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint64_t data = ((uint64_t) constPoolBytes[offset] << 56) |
-                  ((uint64_t) constPoolBytes[offset + 1] << 48) |
-                  ((uint64_t) constPoolBytes[offset + 2] << 40) |
-                  ((uint64_t) constPoolBytes[offset + 3] << 32) |
-                  ((uint64_t) constPoolBytes[offset + 4] << 24) |
-                  ((uint64_t) constPoolBytes[offset + 5] << 16) |
-                  ((uint64_t) constPoolBytes[offset + 6] << 8) |
-                  constPoolBytes[offset + 7];
+  long value = ByteVectorUtil::readint64(constPoolBytes, offset);
   offset += 8;
-  long value = static_cast<long>(data);
 
   return std::make_unique<LongInfo>(value, index);
 }
 
 std::unique_ptr<ConstInfo> DoubleInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint64_t data = ((uint64_t) constPoolBytes[offset] << 56) |
-                  ((uint64_t) constPoolBytes[offset + 1] << 48) |
-                  ((uint64_t) constPoolBytes[offset + 2] << 40) |
-                  ((uint64_t) constPoolBytes[offset + 3] << 32) |
-                  ((uint64_t) constPoolBytes[offset + 4] << 24) |
-                  ((uint64_t) constPoolBytes[offset + 5] << 16) |
-                  ((uint64_t) constPoolBytes[offset + 6] << 8) |
-                  constPoolBytes[offset + 7];
+  double value = ByteVectorUtil::readdouble(constPoolBytes, offset);
   offset += 8;
-  double value = reinterpret_cast<double &>(data);
 
   return std::make_unique<DoubleInfo>(value, index);
 }
 
 std::unique_ptr<ConstInfo> ClassInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t nameIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
+  uint16_t nameIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
   offset += 2;
 
   return std::make_unique<ClassInfo>(nameIndex, index);
 }
 
 std::unique_ptr<ConstInfo> StringInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t stringIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
+  uint16_t stringIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
   offset += 2;
 
   return std::make_unique<StringInfo>(stringIndex, index);
 }
 
 std::unique_ptr<ConstInfo> FieldRefInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t classIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
-  uint16_t nameAndTypeIndex = (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  uint16_t classIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
+  uint16_t nameAndTypeIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 2);
   offset += 4;
 
   return std::make_unique<FieldRefInfo>(classIndex, nameAndTypeIndex, index);
 }
 
 std::unique_ptr<ConstInfo> MethodRefInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t classIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
-  uint16_t nameAndTypeIndex = (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  uint16_t classIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
+  uint16_t nameAndTypeIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 2);
   offset += 4;
 
   return std::make_unique<MethodRefInfo>(classIndex, nameAndTypeIndex, index);
 }
 
 std::unique_ptr<ConstInfo> InterfaceMethodRefInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t classIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
-  uint16_t nameAndTypeIndex = (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  uint16_t classIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
+  uint16_t nameAndTypeIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 2);
   offset += 4;
 
   return std::make_unique<InterfaceMethodRefInfo>(classIndex, nameAndTypeIndex, index);
 }
 
 std::unique_ptr<ConstInfo> NameAndTypeInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t nameIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
-  uint16_t descriptorIndex = (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  uint16_t nameIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
+  uint16_t descriptorIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 2);
   offset += 4;
 
   return std::make_unique<NameAndTypeInfo>(nameIndex, descriptorIndex, index);
@@ -252,22 +235,22 @@ std::unique_ptr<ConstInfo> NameAndTypeInfo::read(const std::vector<uint8_t> &con
 
 std::unique_ptr<ConstInfo> MethodHandleInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
   uint8_t referenceKind = constPoolBytes[offset];
-  uint16_t referenceIndex = (constPoolBytes[offset + 1] << 8) | constPoolBytes[offset + 2];
+  uint16_t referenceIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 1);
   offset += 3;
 
   return std::make_unique<MethodHandleInfo>(referenceKind, referenceIndex, index);
 }
 
 std::unique_ptr<ConstInfo> MethodTypeInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t descriptorIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
+  uint16_t descriptorIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
   offset += 2;
 
   return std::make_unique<MethodTypeInfo>(descriptorIndex, index);
 }
 
 std::unique_ptr<ConstInfo> InvokeDynamicInfo::read(const std::vector<uint8_t> &constPoolBytes, size_t &offset, size_t index) {
-  uint16_t bootstrapMethodAttrIndex = (constPoolBytes[offset] << 8) | constPoolBytes[offset + 1];
-  uint16_t nameAndTypeIndex = (constPoolBytes[offset + 2] << 8) | constPoolBytes[offset + 3];
+  uint16_t bootstrapMethodAttrIndex = ByteVectorUtil::readuint16(constPoolBytes, offset);
+  uint16_t nameAndTypeIndex = ByteVectorUtil::readuint16(constPoolBytes, offset + 2);
   offset += 4;
 
   return std::make_unique<InvokeDynamicInfo>(bootstrapMethodAttrIndex, nameAndTypeIndex, index);

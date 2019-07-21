@@ -18,20 +18,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 file(GLOB_RECURSE SOURCES src/main/cpp/*.cpp)
 include_directories(src/main/include)
 
+# Compiler flags
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  add_compile_options(-pthread -m64 -D_LP64=1 -Wall -Wno-logical-op-parentheses)
+elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+  add_compile_options(-pthread -m64 -D_LP64=1 -Wall -Wno-parentheses)
+endif ()
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/target)
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "npeblame")
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "")
-
-# Compiler flags
-if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  add_compile_options(${PROJECT_NAME} PRIVATE -pthread -m64 -D_LP64=1 -Wall -Wno-logical-op-parentheses)
-  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-logical-op-parentheses")
-elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  add_compile_options(${PROJECT_NAME} PRIVATE -pthread -m64 -D_LP64=1 -Wall -Wno-parentheses)
-  #  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -pthread -m64 -fPIC -D_LP64=1 -Wall -Wno-parentheses")
-endif ()
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # JDK library includes
 if (NOT EXISTS $ENV{JAVA_HOME}/include/jvmti.h)
