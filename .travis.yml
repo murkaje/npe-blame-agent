@@ -1,11 +1,13 @@
 language: cpp
 
+cache:
+  directories:
+    - $HOME/.m2
+
 linux-template: &linux-template
   os: linux
   compiler: clang
   dist: xenial
-  cache:
-    - $HOME/.m2/repository
   addons:
     apt:
       sources:
@@ -18,16 +20,10 @@ osx-template: &osx-template
   compiler: clang
   osx_image: xcode10.2
   env: JAVA_HOME=$(/usr/libexec/java_home)
-  cache:
-    - $HOME/.m2/repository
 
 windows-template: &windows-template
   os: windows
   env: CMAKE_EXTRA_ARGS="-DCMAKE_GENERATOR_PLATFORM=x64"
-  cache:
-    - $HOME/.m2/repository
-    - /c/jdk
-    - /c/maven
 
 branches:
   only:
