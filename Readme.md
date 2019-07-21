@@ -36,7 +36,7 @@ make
 
 -> target/libnpeblame.so | target/libnpeblame.dylib | target/npeblame.dll
 ```
-**⚠ On linux/MacOS use Clang instead of GCC(,8.2] due to a compiler bug. See example: https://godbolt.org/z/McehAm**
+**⚠ On linux/MacOS avoid GCC(,8.3] due to a compiler bug, use GCC 9.x or Clang. See example: https://godbolt.org/z/McehAm**
 
 ### Testing
 Integration tests available in https://github.com/murkaje/npe-blame-test
