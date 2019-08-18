@@ -26,7 +26,7 @@ void checkJniException(JNIEnv *jni, bool tryPrint) {
   if (!tryPrint) {
     jni->ExceptionDescribe();
     jni->ExceptionClear();
-    throw JniError("");
+    throw JniError("Gave up describing JniError");
   }
 
   jni->ExceptionClear();

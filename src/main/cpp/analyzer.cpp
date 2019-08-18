@@ -209,6 +209,33 @@ std::string traceDetailedCause(const Method &currentFrameMethod,
   return "UNKNOWN";
 }
 
+std::string arrayType(uint8_t opCode) {
+  if (opCode >= OpCodes::IALOAD && opCode <= OpCodes::SALOAD) {
+    opCode += OpCodes::IASTORE - OpCodes::IALOAD;
+  }
+
+  switch (opCode) {
+    case OpCodes::IASTORE:
+      return "int ";
+    case OpCodes::LASTORE:
+      return "long ";
+    case OpCodes::FASTORE:
+      return "float ";
+    case OpCodes::DASTORE:
+      return "double ";
+    case OpCodes::AASTORE:
+      return "object ";
+    case OpCodes::BASTORE:
+      return "byte/boolean ";
+    case OpCodes::CASTORE:
+      return "char ";
+    case OpCodes::SASTORE:
+      return "short ";
+    default:
+      assert(false);
+  }
+}
+
 std::string describeNPEInstruction(const Method &currentFrameMethod, const ConstPool &cp, const CodeAttribute &code,
                                    const LocalVariableTable &vars, size_t location) {
   std::string errorSource;
@@ -239,11 +266,11 @@ std::string describeNPEInstruction(const Method &currentFrameMethod, const Const
 
     errorSource = putOrGet + " field " + field.getClassName() + "." + field.getFieldName() + " of null ";
   } else if (op >= OpCodes::IASTORE && op <= OpCodes::SASTORE) {
-    errorSource = "Storing array value to null ";
-    stackExcess = 2;
+    errorSource = "Storing " + arrayType(op) + "to null array - ";
+    stackExcess = op == OpCodes::DASTORE || op == OpCodes::LASTORE ? 3 : 2;
   } else if (op >= OpCodes::IALOAD && op <= OpCodes::SALOAD) {
-    errorSource = "Loading array value from null ";
-    stackExcess = 0;
+    errorSource = "Loading " + arrayType(op) + "from null array - ";
+    stackExcess = 1;
   } else if (op == OpCodes::ARRAYLENGTH) {
     errorSource = "Getting array length of null ";
     stackExcess = 0;

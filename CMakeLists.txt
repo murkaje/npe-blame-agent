@@ -9,9 +9,6 @@ message("Build type: ${CMAKE_BUILD_TYPE}")
 
 # Set c++ standard
 set(CMAKE_CXX_STANDARD 17)
-#if (MSVC)
-#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
-#endif (MSVC)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Project configuration
@@ -69,7 +66,6 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     message("Found libdw as optional library for backward-cpp")
     target_compile_definitions(${PROJECT_NAME} PRIVATE BACKWARD_HAS_DW=1)
     target_link_libraries(${PROJECT_NAME} -ldw)
-    #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBACKWARD_HAS_DW=1")
   endif ()
 endif()
 
