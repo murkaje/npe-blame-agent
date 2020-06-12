@@ -34,7 +34,7 @@ before_install:
   - |
     if [ "$TRAVIS_OS_NAME" = "windows" ]; then
       export JAVA_HOME=/c/jdk/jdk-12.0.2/
-      export M2_HOME=/c/maven/apache-maven-3.6.1/
+      export M2_HOME=/c/maven/apache-maven-3.6.3/
       export PATH=$M2_HOME/bin:$PATH
       if [ ! -d /c/jdk/ ]; then
         mkdir /c/jdk
@@ -46,7 +46,7 @@ before_install:
       if [ ! -d $M2_HOME/bin ]; then
         mkdir /c/maven
         pushd /c/maven/
-        curl -o maven.zip https://www-us.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.zip && 7z x maven.zip
+        curl -o maven.zip https://downloads.apache.org/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.zip && 7z x maven.zip
         mvn -version
         popd
       fi
